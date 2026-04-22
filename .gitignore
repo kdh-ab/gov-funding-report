@@ -10,4 +10,7 @@ venv/
 *.xlsx
 *.pdf
 output/
+logs/
+data/cache/
+data/companies/
 .DS_Store

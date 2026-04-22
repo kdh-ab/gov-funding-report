@@ -1,0 +1,444 @@
+{
+    "name": "K-Startup 사업공고 크롤러 (교육용)",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "edu-0001-4000-8000-000000000001",
+            "name": "수동 실행",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "page",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "text"
+                        }
+                    }
+                }
+            },
+            "id": "edu-0001-4000-8000-000000000020",
+            "name": "첫 페이지 요청",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                470,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// 첫 페이지 HTML에서 페이지네이션 링크를 파싱하여\n// 총 페이지 수를 추출한다.\n// fn_egov_link_page(N) 호출 중 최대 N이 총 페이지 수.\n\nconst html = $input.first().json.data;\n\nconst matches = [...html.matchAll(/fn_egov_link_page\\((\\d+)\\)/g)];\nconst pageNumbers = matches.map((m) => parseInt(m[1], 10));\nconst totalPages = pageNumbers.length > 0 ? Math.max(...pageNumbers) : 1;\n\nreturn [{ json: { totalPages } }];"
+            },
+            "id": "edu-0001-4000-8000-000000000021",
+            "name": "총 페이지 수 추출",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                690,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do",
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "text"
+                        }
+                    },
+                    "pagination": {
+                        "pagination": {
+                            "paginationMode": "updateAParameterInEachRequest",
+                            "parameters": {
+                                "parameters": [
+                                    {
+                                        "type": "qs",
+                                        "name": "page",
+                                        "value": "={{ $pageCount + 1 }}"
+                                    }
+                                ]
+                            },
+                            "paginationCompleteWhen": "other",
+                            "completeExpression": "={{ $pageCount + 1 >= $json.totalPages }}",
+                            "limitPagesFetched": true,
+                            "maxRequests": "={{ $json.totalPages }}",
+                            "requestInterval": 1000
+                        }
+                    }
+                }
+            },
+            "id": "edu-0001-4000-8000-000000000002",
+            "name": "목록 페이지 수집",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                910,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "extractHtmlContent",
+                "sourceData": "json",
+                "dataPropertyName": "data",
+                "extractionValues": {
+                    "values": [
+                        {
+                            "key": "links",
+                            "cssSelector": ".middle a[href*='go_view']",
+                            "returnValue": "attribute",
+                            "attribute": "href",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "titles",
+                            "cssSelector": ".middle a[href*='go_view'] p.tit",
+                            "returnValue": "text",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "fields",
+                            "cssSelector": ".middle li .top .flag:not(.day)",
+                            "returnValue": "text",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "ddays",
+                            "cssSelector": ".middle li .flag.day",
+                            "returnValue": "text",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "agencies",
+                            "cssSelector": ".middle li .flag_agency",
+                            "returnValue": "text",
+                            "returnArray": true
+                        }
+                    ]
+                }
+            },
+            "id": "edu-0001-4000-8000-000000000003",
+            "name": "목록 HTML 파싱",
+            "type": "n8n-nodes-base.html",
+            "typeVersion": 1.2,
+            "position": [
+                1130,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// HTML 노드가 추출한 배열 데이터에서 공고 ID를 파싱하고\n// 상세 크롤링을 위한 아이템 목록을 생성한다.\n//\n// CSS 선택자로는 href=\"javascript:go_view(176429)\"에서\n// 숫자 ID만 추출하는 것이 불가능하므로 정규식 사용.\n\nconst items = $input.all();\nconst announcements = [];\n\nfor (const item of items) {\n  const links = item.json.links || [];\n  const titles = item.json.titles || [];\n  const fields = item.json.fields || [];\n  const ddays = item.json.ddays || [];\n  const agencies = item.json.agencies || [];\n\n  for (let i = 0; i < links.length; i++) {\n    const href = links[i] || '';\n    const match = href.match(/go_view\\((\\d+)\\)/);\n    if (!match) continue;\n\n    announcements.push({\n      json: {\n        pbancSn: match[1],\n        title: (titles[i] || '').trim(),\n        field: (fields[i] || '').trim(),\n        dday: (ddays[i] || '').trim(),\n        agency: (agencies[i] || '').trim(),\n        detailUrl: `https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do?schM=view&pbancSn=${match[1]}`,\n      },\n    });\n  }\n}\n\n// 중복 제거 (페이지 간 중복 가능)\nconst seen = new Set();\nconst unique = announcements.filter((a) => {\n  if (seen.has(a.json.pbancSn)) return false;\n  seen.add(a.json.pbancSn);\n  return true;\n});\n\n// 결과 누적용 static data 초기화\nconst staticData = $getWorkflowStaticData('global');\nstaticData.results = [];\n\nreturn unique;"
+            },
+            "id": "edu-0001-4000-8000-000000000004",
+            "name": "공고 ID 추출",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1350,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "options": {}
+            },
+            "id": "edu-0001-4000-8000-000000000005",
+            "name": "공고별 순차 처리",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                1570,
+                450
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{ $json.detailUrl }}",
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "text"
+                        }
+                    }
+                }
+            },
+            "id": "edu-0001-4000-8000-000000000006",
+            "name": "상세 페이지 요청",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1840,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "extractHtmlContent",
+                "sourceData": "json",
+                "dataPropertyName": "data",
+                "extractionValues": {
+                    "values": [
+                        {
+                            "key": "detailTitle",
+                            "cssSelector": ".title h3",
+                            "returnValue": "text",
+                            "returnArray": false
+                        },
+                        {
+                            "key": "metaKeys",
+                            "cssSelector": ".dot_list .table_inner p.tit",
+                            "returnValue": "text",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "metaValues",
+                            "cssSelector": ".dot_list .table_inner p.txt",
+                            "returnValue": "text",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "contentText",
+                            "cssSelector": ".box .box_inner",
+                            "returnValue": "text",
+                            "returnArray": false
+                        },
+                        {
+                            "key": "fileNames",
+                            "cssSelector": ".board_file li a.file_bg",
+                            "returnValue": "text",
+                            "returnArray": true
+                        },
+                        {
+                            "key": "fileUrls",
+                            "cssSelector": ".board_file li a.btn_down",
+                            "returnValue": "attribute",
+                            "attribute": "href",
+                            "returnArray": true
+                        }
+                    ]
+                }
+            },
+            "id": "edu-0001-4000-8000-000000000007",
+            "name": "상세 HTML 파싱",
+            "type": "n8n-nodes-base.html",
+            "typeVersion": 1.2,
+            "position": [
+                2110,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// 상세 페이지에서 추출한 key-value 쌍을 정리하고\n// 첨부파일 정보를 구조화한다.\n// 결과를 workflow static data에 누적 저장한다.\n\nconst item = $input.first().json;\n\n// SplitInBatches에서 전달된 원본 목록 데이터 참조\n// (HTML 노드 출력에는 목록 정보가 없으므로 $('공고별 순차 처리')로 접근)\nconst batchItem = $('공고별 순차 처리').first().json;\n\n// 메타 정보: key-value 배열을 객체로 변환\nconst meta = {};\nconst keys = item.metaKeys || [];\nconst values = item.metaValues || [];\nfor (let i = 0; i < keys.length; i++) {\n  const k = (keys[i] || '').trim();\n  const v = (values[i] || '').trim();\n  if (k && v) meta[k] = v;\n}\n\n// 첨부파일: 이름/URL 배열을 객체 배열로 변환\nconst attachments = [];\nconst fileNames = item.fileNames || [];\nconst fileUrls = item.fileUrls || [];\nfor (let i = 0; i < fileNames.length; i++) {\n  const name = (fileNames[i] || '').trim();\n  const url = (fileUrls[i] || '').trim();\n  if (name && url) {\n    attachments.push({\n      fileName: name,\n      downloadUrl: url.startsWith('http') ? url : `https://www.k-startup.go.kr${url}`,\n    });\n  }\n}\n\nconst result = {\n  pbancSn: batchItem.pbancSn || '',\n  title: (item.detailTitle || '').trim() || batchItem.title || '',\n  supportField: meta['지원분야'] || batchItem.field || '',\n  targetAge: meta['대상연령'] || '',\n  orgType: meta['기관구분'] || '',\n  department: meta['담당부서'] || '',\n  region: meta['지역'] || '',\n  receptionPeriod: meta['접수기간'] || '',\n  supervisionOrg: meta['주관기관명'] || '',\n  target: meta['대상'] || '',\n  bizExperience: meta['창업업력'] || '',\n  contact: meta['연락처'] || '',\n  contentText: (item.contentText || '').trim().substring(0, 5000),\n  attachments,\n  detailUrl: batchItem.detailUrl || '',\n  crawledAt: new Date().toISOString(),\n};\n\n// workflow static data에 결과 누적\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.results) staticData.results = [];\nstaticData.results.push(result);\n\n// 서버 부하 방지를 위해 1초 대기\nawait new Promise((r) => setTimeout(r, 1000));\n\nreturn [{ json: result }];"
+            },
+            "id": "edu-0001-4000-8000-000000000008",
+            "name": "상세 데이터 정리",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2380,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// workflow static data에서 누적된 크롤링 결과를 읽어\n// JSON 파일로 저장한다.\n\nconst fs = require('fs');\n\nconst staticData = $getWorkflowStaticData('global');\nconst items = staticData.results || [];\n\nconst now = new Date();\nconst timestamp = now.toISOString().replace(/[:.]/g, '-').substring(0, 19);\n\nconst result = {\n  crawledAt: now.toISOString(),\n  totalCount: items.length,\n  source: 'https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do',\n  description: 'K-Startup 모집중 사업공고 크롤링 결과 (교육용 워크플로우)',\n  items,\n};\n\nconst filePath = `/files/kstartup-ongoing-educational-${timestamp}.json`;\nfs.writeFileSync(filePath, JSON.stringify(result, null, 2), 'utf-8');\n\n// 다음 실행을 위해 static data 초기화\nstaticData.results = [];\n\nreturn [\n  {\n    json: {\n      success: true,\n      filePath,\n      totalCount: items.length,\n      crawledAt: now.toISOString(),\n    },\n  },\n];"
+            },
+            "id": "edu-0001-4000-8000-000000000009",
+            "name": "결과 JSON 저장",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1840,
+                600
+            ]
+        },
+        {
+            "parameters": {
+                "content": "## K-Startup 사업공고 크롤러 (교육용)\n\nn8n 기본 제공 노드를 활용한 웹 크롤링 실습 워크플로우.\n\n### 학습 목표\n- **HTTP Request**: 웹 페이지 요청 + 내장 페이지네이션\n- **HTML 노드**: CSS 선택자로 HTML 파싱\n- **SplitInBatches**: 루프(반복) 패턴\n- **Code 노드**: 데이터 가공 + 페이지 수 파악\n- **Static Data**: 루프 결과 누적 저장\n\n### 흐름\n1단계: 총 페이지 파악 → 목록 페이지 수집 → HTML 파싱 → ID 추출\n2단계: 공고별 상세 크롤링 (루프)\n3단계: 결과 JSON 파일 저장\n\n### 출력\n`/files/kstartup-ongoing-educational-{timestamp}.json`",
+                "height": 440,
+                "width": 240
+            },
+            "id": "edu-0001-4000-8000-000000000010",
+            "name": "워크플로우 설명",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                20,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "content": "### 1단계: 목록 수집\n\n**① 첫 페이지 요청** (HTTP Request)\n페이지 1을 요청하여 총 페이지 수를 파악.\n\n**② 총 페이지 수 추출** (Code)\n`fn_egov_link_page(N)` 중 최대 N을 추출.\n\n**③ 목록 페이지 수집** (HTTP Request + 페이지네이션)\n`maxRequests`를 총 페이지 수로 설정하여\n정확한 페이지만 요청. 동일 응답 감지 에러 방지.\n\n**④ 목록 HTML 파싱** (HTML)\nCSS 선택자로 데이터 추출.\n\n**⑤ 공고 ID 추출** (Code)\n`go_view(ID)` 정규식 파싱 + 중복 제거.",
+                "height": 380,
+                "width": 320
+            },
+            "id": "edu-0001-4000-8000-000000000011",
+            "name": "1단계 설명",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                390,
+                160
+            ]
+        },
+        {
+            "parameters": {
+                "content": "### 2단계: 상세 크롤링 루프\n\n**SplitInBatches** 노드로 공고를 1건씩 순차 처리.\n- Output 0 (done): 모든 아이템 완료 → 결과 저장으로\n- Output 1 (loop): 처리할 아이템이 남아 있을 때 → 루프 본문으로\n\n**루프 본문**: HTTP 요청 → HTML 파싱 → 데이터 정리\n→ 1초 대기 후 SplitInBatches로 복귀\n\n**Static Data**: `$getWorkflowStaticData('global')`로\n매 반복 결과를 누적하여 저장 노드에서 한번에 읽음.\n\n💡 **참고**: n8n의 Wait 노드로도 대기 가능하지만,\nSplitInBatches 루프 안에서는 동작이 불안정할 수 있어\nCode 노드 내 sleep을 사용.",
+                "height": 380,
+                "width": 340
+            },
+            "id": "edu-0001-4000-8000-000000000012",
+            "name": "2단계 설명",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                1490,
+                80
+            ]
+        }
+    ],
+    "connections": {
+        "수동 실행": {
+            "main": [
+                [
+                    {
+                        "node": "첫 페이지 요청",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "첫 페이지 요청": {
+            "main": [
+                [
+                    {
+                        "node": "총 페이지 수 추출",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "총 페이지 수 추출": {
+            "main": [
+                [
+                    {
+                        "node": "목록 페이지 수집",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "목록 페이지 수집": {
+            "main": [
+                [
+                    {
+                        "node": "목록 HTML 파싱",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "목록 HTML 파싱": {
+            "main": [
+                [
+                    {
+                        "node": "공고 ID 추출",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "공고 ID 추출": {
+            "main": [
+                [
+                    {
+                        "node": "공고별 순차 처리",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "공고별 순차 처리": {
+            "main": [
+                [
+                    {
+                        "node": "결과 JSON 저장",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "상세 페이지 요청",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "상세 페이지 요청": {
+            "main": [
+                [
+                    {
+                        "node": "상세 HTML 파싱",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "상세 HTML 파싱": {
+            "main": [
+                [
+                    {
+                        "node": "상세 데이터 정리",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "상세 데이터 정리": {
+            "main": [
+                [
+                    {
+                        "node": "공고별 순차 처리",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": []
+}
