@@ -78,7 +78,9 @@ export function CompanyForm() {
   return (
     <div className="space-y-6">
       {/* 스텝 인디케이터 */}
-      <StepIndicator current={step} />
+      <div className="mb-4">
+        <StepIndicator current={step} />
+      </div>
 
       {/* Step 1: 사업자등록증 업로드 */}
       {step === 1 && (
@@ -276,21 +278,24 @@ export function CompanyForm() {
               onSortChange={setSortBy}
               filterField={filterField}
               onFilterChange={setFilterField}
+              onEditCondition={() => setStep(2)}
+              formData={formData}
+              onRefreshComplete={(res) => setResult(res)}
             />
           ) : (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800">
-              {result.error}
+              <div className="flex items-center justify-between">
+                <span>{result.error}</span>
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="ml-3 px-4 py-1.5 text-xs font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 shrink-0"
+                >
+                  조건 수정하기
+                </button>
+              </div>
             </div>
           )}
-          <div className="flex gap-3 justify-start">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="px-6 py-2.5 text-sm text-slate-500 hover:text-slate-700"
-            >
-              조건 수정하기
-            </button>
-          </div>
         </div>
       )}
     </div>
@@ -306,7 +311,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
     { num: 3, label: "추천 결과" },
   ];
   return (
-    <div className="flex items-center justify-center gap-2 mb-2">
+    <div className="flex items-center justify-center gap-2 mb-10">
       {steps.map((s, i) => (
         <div key={s.num} className="flex items-center gap-2">
           <div
@@ -352,59 +357,175 @@ function UploadSection({
   done: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragCounter = useRef(0);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) onFileSelect(file);
   }
 
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) onFileSelect(file);
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    setDragging(true);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) setDragging(false);
+  }
+
+  // 업로드 아이콘 (화살표)
+  const UploadArrow = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+    </svg>
+  );
+
+  // 체크 아이콘
+  const CheckIcon = () => (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+
   return (
     <div
-      className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-        done
-          ? "border-green-300 bg-green-50"
-          : "border-slate-300 bg-white hover:border-blue-400"
+      onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onClick={() => !isPending && !done && fileRef.current?.click()}
+      className={`relative rounded-2xl py-12 px-8 text-center transition-all duration-300 cursor-pointer select-none ${
+        dragging
+          ? "bg-[#fef5f3] border-2 border-dashed border-[#e8735a]"
+          : done
+            ? "bg-[#f0fdf4] border-2 border-[#86efac]"
+            : "bg-white border-2 border-dashed border-slate-200 hover:border-[#e8735a]/40"
       }`}
     >
-      {isPending ? (
-        <div className="space-y-3">
-          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-slate-600">
-            사업자등록증 분석 중...
+      {/* 원형 아이콘 */}
+      <div className="flex justify-center mb-5">
+        {isPending ? (
+          <div className="w-16 h-16 rounded-full bg-[#e8735a] flex items-center justify-center">
+            <div className="w-7 h-7 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+          </div>
+        ) : done ? (
+          <div className="w-16 h-16 rounded-full bg-[#22c55e] flex items-center justify-center text-white upload-check-pop">
+            <CheckIcon />
+          </div>
+        ) : (
+          <div
+            className={`w-16 h-16 rounded-full bg-[#e8735a] flex items-center justify-center text-white ${
+              dragging ? "upload-icon-dragging" : "upload-icon-idle"
+            }`}
+          >
+            <UploadArrow />
+          </div>
+        )}
+      </div>
+
+      {/* 텍스트 영역 */}
+      {dragging ? (
+        <div className="pointer-events-none">
+          <h3 className="text-xl font-bold text-slate-800 upload-fade-in">
+            여기에 놓으세요
+          </h3>
+          <p className="text-sm text-slate-400 mt-2 upload-fade-in-delay">
+            파일을 놓으면 바로 분석을 시작합니다
+          </p>
+        </div>
+      ) : isPending ? (
+        <div>
+          <h3 className="text-xl font-bold text-slate-800">분석 중...</h3>
+          <p className="text-sm text-slate-400 mt-2">
+            사업자등록증에서 정보를 추출하고 있습니다
           </p>
         </div>
       ) : done ? (
-        <div className="space-y-2">
-          <p className="text-lg text-green-700 font-medium">
-            사업자등록증 인식 완료
+        <div>
+          <h3 className="text-xl font-bold text-slate-800 upload-fade-in">
+            인식 완료
+          </h3>
+          <p className="text-sm text-slate-400 mt-2 upload-fade-in-delay">
+            아래에서 추출된 정보를 확인하세요 /{" "}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileRef.current?.click();
+              }}
+              className="text-[#e8735a] hover:underline"
+            >
+              다시 업로드
+            </button>
           </p>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="text-sm text-green-600 underline"
-          >
-            다른 파일로 다시 시도
-          </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          <div className="text-4xl text-slate-300">&#128196;</div>
-          <p className="text-sm text-slate-600">
-            사업자등록증 이미지를 업로드하면
-            <br />
-            기업 정보가 자동으로 입력됩니다
+        <div>
+          <h3 className="text-xl font-bold text-slate-800 tracking-tight">
+            Drag <span className="font-light">&</span> drop
+          </h3>
+          <p className="text-sm text-slate-400 mt-2">
+            JPG, PNG, WebP 형식 또는{" "}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileRef.current?.click();
+              }}
+              className="text-[#e8735a] hover:underline font-medium"
+            >
+              파일 선택
+            </button>
           </p>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg
-                       hover:bg-blue-700 transition-colors"
-          >
-            파일 선택
-          </button>
-          <p className="text-xs text-slate-400">JPG, PNG, WebP 지원</p>
         </div>
       )}
+
+      {/* 하단 안내 */}
+      {!dragging && !isPending && !done && (
+        <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-8 max-w-md mx-auto text-left">
+          {[
+            "사업자등록증 이미지를 올려주세요",
+            "기업 정보가 자동으로 입력됩니다",
+            "OCR로 기업명, 소재지 등을 추출합니다",
+            "추출 후 수동으로 수정할 수 있습니다",
+          ].map((text, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span
+                className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
+                  i === 0
+                    ? "bg-[#e8735a]"
+                    : "bg-slate-300"
+                }`}
+              />
+              <span className="text-xs text-slate-400 leading-relaxed">
+                {text}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <input
         ref={fileRef}
         type="file"
@@ -413,7 +534,7 @@ function UploadSection({
         className="hidden"
       />
       {error && (
-        <p className="mt-3 text-sm text-red-600">{error}</p>
+        <p className="mt-4 text-sm text-red-500 upload-fade-in">{error}</p>
       )}
     </div>
   );
@@ -427,17 +548,49 @@ function ResultsView({
   onSortChange,
   filterField,
   onFilterChange,
+  onEditCondition,
+  formData,
+  onRefreshComplete,
 }: {
   result: Extract<RecommendResponse, { success: true }>;
   sortBy: "score" | "deadline";
   onSortChange: (v: "score" | "deadline") => void;
   filterField: string;
   onFilterChange: (v: string) => void;
+  onEditCondition: () => void;
+  formData: CompanyFormData;
+  onRefreshComplete: (res: RecommendResponse) => void;
 }) {
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [refreshPending, setRefreshPending] = useState(false);
   const crawledDate = result.crawled_at
     ? new Date(result.crawled_at).toLocaleDateString("ko-KR")
     : "";
+
+  // 캐시 나이 계산
+  const cacheAgeText = (() => {
+    const ts = result.crawled_at;
+    if (!ts) return null;
+    const diffMs = Date.now() - new Date(ts).getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}일 전 데이터`;
+    if (hours > 0) return `${hours}시간 전 데이터`;
+    return "방금 업데이트됨";
+  })();
+
+  const isStale = (() => {
+    if (!result.crawled_at) return true;
+    const diffMs = Date.now() - new Date(result.crawled_at).getTime();
+    return diffMs > 24 * 60 * 60 * 1000; // 24시간 이상
+  })();
+
+  async function handleRefresh() {
+    setRefreshPending(true);
+    const res = await runRecommendation(formData, true);
+    setRefreshPending(false);
+    onRefreshComplete(res);
+  }
 
   async function handleDownload(format: "xlsx" | "pdf") {
     setDownloading(format);
@@ -506,11 +659,13 @@ function ResultsView({
               추천
             </p>
           </div>
-          {crawledDate && (
-            <span className="text-xs text-slate-400">
-              데이터 기준: {crawledDate}
-            </span>
-          )}
+          <div className="flex flex-col items-end gap-1">
+            {crawledDate && (
+              <span className={`text-xs ${isStale ? "text-amber-500 font-medium" : "text-slate-400"}`}>
+                {cacheAgeText}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 mt-3">
           <button
@@ -530,6 +685,23 @@ function ResultsView({
                        hover:bg-slate-800 disabled:opacity-50 transition-colors"
           >
             {downloading === "pdf" ? "생성 중..." : "PDF 다운로드"}
+          </button>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshPending || downloading !== null}
+            className="px-4 py-2 text-xs font-medium bg-amber-500 text-white rounded-lg
+                       hover:bg-amber-600 disabled:opacity-50 transition-colors"
+          >
+            {refreshPending ? "크롤링 중..." : "최신 데이터로 추천받기"}
+          </button>
+          <button
+            type="button"
+            onClick={onEditCondition}
+            className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-300 rounded-lg
+                       hover:bg-slate-50 transition-colors ml-auto"
+          >
+            조건 수정하기
           </button>
         </div>
       </div>
@@ -590,6 +762,24 @@ function ResultsView({
           </p>
         )}
       </div>
+
+      {/* 크롤링 로딩 오버레이 */}
+      {refreshPending && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-10 shadow-2xl text-center max-w-sm">
+            <div className="w-14 h-14 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mx-auto" />
+            <p className="mt-5 text-base font-bold text-slate-800">
+              최신 공고를 수집하고 있습니다
+            </p>
+            <p className="mt-2 text-sm text-slate-400">
+              K-Startup, 기업마당에서 크롤링 중...
+            </p>
+            <p className="mt-1 text-xs text-slate-300">
+              약 2분 정도 소요됩니다
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

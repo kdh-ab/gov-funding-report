@@ -29,12 +29,19 @@ export interface MatchedAnnouncement {
   };
 }
 
+export interface CacheInfo {
+  crawled_at: string;
+  source: string;
+  count: number;
+}
+
 export interface RecommendResult {
   success: true;
   company: Record<string, string>;
   total_announcements: number;
   recommended_count: number;
   crawled_at: string;
+  cache_info?: CacheInfo | null;
   matches: MatchedAnnouncement[];
 }
 
@@ -84,7 +91,8 @@ function extractRegion(address: string): string {
 }
 
 export async function runRecommendation(
-  data: CompanyFormData
+  data: CompanyFormData,
+  refresh: boolean = false
 ): Promise<RecommendResponse> {
   if (!data.company_name) {
     return { success: false, error: "기업명은 필수입니다." };
@@ -104,12 +112,15 @@ export async function runRecommendation(
   await writeFile(profilePath, JSON.stringify(profile, null, 2), "utf-8");
 
   // Python 매칭 스크립트 실행
+  const args = [path.join(projectRoot, "run_match.py"), data.company_name];
+  if (refresh) args.push("--refresh");
+
   try {
-    const { stdout } = await execFileAsync(
-      "python3",
-      [path.join(projectRoot, "run_match.py"), data.company_name],
-      { cwd: projectRoot, timeout: 30000, maxBuffer: 10 * 1024 * 1024 }
-    );
+    const { stdout } = await execFileAsync("python3", args, {
+      cwd: projectRoot,
+      timeout: refresh ? 180000 : 30000,
+      maxBuffer: 10 * 1024 * 1024,
+    });
 
     const result = JSON.parse(stdout);
     if (result.error) {
@@ -119,6 +130,12 @@ export async function runRecommendation(
     return { success: true, ...result };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "알 수 없는 오류";
+    if (refresh && message.includes("TIMEOUT")) {
+      return {
+        success: false,
+        error: "크롤링 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.",
+      };
+    }
     return { success: false, error: `매칭 실행 실패: ${message}` };
   }
 }

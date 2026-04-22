@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 from glob import glob
+from typing import Optional
 
 from config import settings
 from data.models import Announcement
@@ -79,6 +80,22 @@ class AnnouncementStore:
         if use_seed:
             return self.load_seed_data()
         return []
+
+    def get_cache_info(self) -> Optional[dict]:
+        """최신 캐시 파일의 메타 정보를 반환한다. 캐시 없으면 None."""
+        pattern = os.path.join(settings.CACHE_DIR, "*.json")
+        files = sorted(glob(pattern), key=os.path.getmtime, reverse=True)
+        if not files:
+            return None
+
+        with open(files[0], "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return {
+            "crawled_at": data.get("crawledAt", ""),
+            "source": data.get("source", ""),
+            "count": data.get("totalCount", 0),
+        }
 
     @staticmethod
     def merge(existing: list[Announcement], new: list[Announcement]) -> list[Announcement]:

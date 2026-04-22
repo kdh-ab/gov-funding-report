@@ -40,3 +40,55 @@ body {
 .input::placeholder {
   color: #94a3b8;
 }
+
+/* ─── 드래그앤드롭 애니메이션 ─── */
+
+@keyframes upload-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes upload-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 115, 90, 0.4); }
+  50% { box-shadow: 0 0 0 16px rgba(232, 115, 90, 0); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.upload-icon-idle {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.upload-icon-idle:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(232, 115, 90, 0.3);
+}
+
+.upload-icon-dragging {
+  animation: upload-bounce 0.8s ease-in-out infinite, upload-pulse 1.6s ease-in-out infinite;
+}
+
+.upload-fade-in {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.upload-fade-in-delay {
+  animation: fade-in-up 0.4s ease-out 0.1s both;
+}
+
+.upload-fade-in-delay-2 {
+  animation: fade-in-up 0.4s ease-out 0.2s both;
+}
+
+.upload-check-pop {
+  animation: check-pop 0.4s ease-out both;
+}

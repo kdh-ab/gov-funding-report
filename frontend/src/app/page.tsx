@@ -9,7 +9,7 @@ export default function Home() {
             정부지원사업 맞춤 추천
           </h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            사업자등록증을 업로드하면 기업에 맞는 지원사업을 찾아드립니다
+            기업에 맞는 지원사업을 추천해드려요!
           </p>
         </div>
       </header>
