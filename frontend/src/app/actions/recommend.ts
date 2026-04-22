@@ -118,7 +118,7 @@ export async function runRecommendation(
   try {
     const { stdout } = await execFileAsync("python3", args, {
       cwd: projectRoot,
-      timeout: refresh ? 180000 : 30000,
+      timeout: refresh ? 300000 : 30000,
       maxBuffer: 10 * 1024 * 1024,
     });
 

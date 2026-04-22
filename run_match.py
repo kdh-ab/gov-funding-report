@@ -13,14 +13,17 @@ from data.store import AnnouncementStore
 from matcher.engine import RecommendationEngine
 
 
-def crawl_fresh(store):
-    """K-Startup + BizInfo 실시간 크롤링."""
+def crawl_fresh(store, max_pages=5):
+    """K-Startup + BizInfo 실시간 크롤링.
+
+    웹 트리거에서는 max_pages를 제한하여 타임아웃을 방지한다.
+    """
     all_announcements = []
 
     try:
-        print("[K-Startup] 크롤링 시작...", file=sys.stderr)
+        print(f"[K-Startup] 크롤링 시작 (최대 {max_pages}페이지)...", file=sys.stderr)
         kstartup = KStartupCrawler()
-        k_items = kstartup.crawl()
+        k_items = kstartup.crawl(max_pages=max_pages)
         all_announcements.extend(k_items)
         if k_items:
             store.save(k_items, "K-Startup")
@@ -29,9 +32,9 @@ def crawl_fresh(store):
         print(f"[K-Startup] 크롤링 오류: {e}", file=sys.stderr)
 
     try:
-        print("[BIZINFO] 크롤링 시작...", file=sys.stderr)
+        print(f"[BIZINFO] 크롤링 시작 (최대 {max_pages}페이지)...", file=sys.stderr)
         bizinfo = BizinfoCrawler()
-        b_items = bizinfo.crawl()
+        b_items = bizinfo.crawl(max_pages=max_pages)
         all_announcements.extend(b_items)
         if b_items:
             store.save(b_items, "BIZINFO")
