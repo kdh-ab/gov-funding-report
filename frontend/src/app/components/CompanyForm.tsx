@@ -2,9 +2,9 @@
 
 import { useState, useTransition, useRef } from "react";
 import {
-  extractFromBusinessLicense,
-  type OcrResponse,
-} from "../actions/ocr";
+  extractWithTesseract,
+  type OcrLocalResponse,
+} from "../utils/ocr-local";
 import {
   runRecommendation,
   type RecommendResponse,
@@ -33,6 +33,7 @@ export function CompanyForm() {
   const [isPending, startTransition] = useTransition();
   const [ocrPending, setOcrPending] = useState(false);
   const [ocrError, setOcrError] = useState("");
+  const [ocrRawText, setOcrRawText] = useState("");
   const [sortBy, setSortBy] = useState<"score" | "deadline">("score");
   const [filterField, setFilterField] = useState("");
 
@@ -40,30 +41,38 @@ export function CompanyForm() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
-  // OCR 처리
+  // OCR 처리 (Tesseract.js — 브라우저에서 실행, API 키 불필요)
   async function handleOcr(file: File) {
     setOcrPending(true);
     setOcrError("");
-    const fd = new FormData();
-    fd.append("file", file);
-    const res: OcrResponse = await extractFromBusinessLicense(fd);
-    setOcrPending(false);
+    try {
+      const res: OcrLocalResponse = await extractWithTesseract(file);
+      setOcrPending(false);
 
-    if (!res.success) {
-      setOcrError(res.error);
-      return;
+      if (!res.success) {
+        setOcrError(res.error);
+        return;
+      }
+
+      setOcrRawText(res.raw_text);
+      console.log("=== OCR Raw Text ===\n", res.raw_text);
+
+      setFormData((prev) => ({
+        ...prev,
+        company_name: res.data.company_name || prev.company_name,
+        ceo_name: res.data.ceo_name || prev.ceo_name,
+        address: res.data.address || prev.address,
+        established_date: res.data.established_date || prev.established_date,
+        main_industry: res.data.main_industry || prev.main_industry,
+        main_sector: res.data.main_sector || prev.main_sector,
+      }));
+      setOcrDone(true);
+    } catch (err) {
+      setOcrPending(false);
+      const message = err instanceof Error ? err.message : "알 수 없는 오류";
+      setOcrError(`OCR 오류: ${message}`);
+      console.error("OCR error:", err);
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      company_name: res.data.company_name || prev.company_name,
-      ceo_name: res.data.ceo_name || prev.ceo_name,
-      address: res.data.address || prev.address,
-      established_date: res.data.established_date || prev.established_date,
-      main_industry: res.data.main_industry || prev.main_industry,
-      main_sector: res.data.main_sector || prev.main_sector,
-    }));
-    setOcrDone(true);
   }
 
   // 추천 실행
@@ -113,6 +122,18 @@ export function CompanyForm() {
                 {formData.main_sector && <p>종목: {formData.main_sector}</p>}
               </div>
             </div>
+          )}
+
+          {/* OCR 원본 텍스트 (디버그) */}
+          {ocrRawText && (
+            <details className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <summary className="text-xs font-medium text-slate-500 cursor-pointer">
+                OCR 원본 텍스트 보기
+              </summary>
+              <pre className="mt-2 text-xs text-slate-600 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                {ocrRawText}
+              </pre>
+            </details>
           )}
 
           <div className="flex gap-3 justify-end">
@@ -371,7 +392,7 @@ function UploadSection({
     dragCounter.current = 0;
     setDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) onFileSelect(file);
+    if (file && (file.type.startsWith("image/") || file.type === "application/pdf")) onFileSelect(file);
   }
 
   function handleDragEnter(e: React.DragEvent) {
@@ -486,7 +507,7 @@ function UploadSection({
             Drag <span className="font-light">&</span> drop
           </h3>
           <p className="text-sm text-slate-400 mt-2">
-            JPG, PNG, WebP 형식 또는{" "}
+            JPG, PNG, WebP, PDF 형식 또는{" "}
             <button
               type="button"
               onClick={(e) => {
@@ -529,7 +550,7 @@ function UploadSection({
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
         onChange={handleChange}
         className="hidden"
       />
