@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #1e293b;
+  --background: #f7f7f5;
+  --foreground: #131A1C;
+  --accent: #FFF200;
+  --accent-hover: #e6da00;
+  --card-bg: #ffffff;
+  --card-border: #e8e8e4;
+  --muted: #91959B;
+  --muted-light: #B8BFCA;
 }
 
 @theme inline {
@@ -24,35 +30,68 @@ body {
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #1e293b;
+  color: #131A1C;
   background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e8e8e4;
   border-radius: 0.5rem;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: #131A1C;
+  box-shadow: 0 0 0 3px rgba(19, 26, 28, 0.08);
 }
 
 .input::placeholder {
-  color: #94a3b8;
+  color: #B8BFCA;
 }
 
-/* ─── 드래그앤드롭 애니메이션 ─── */
+/* ─── 업로드 UI ─── */
 
+.upload-outer-card {
+  background: #f0efeb;
+  box-shadow:
+    0 1px 3px rgba(19, 26, 28, 0.06);
+}
+
+/* 내부 dashed 테두리 애니메이션 */
+.upload-dashed-active {
+  animation: dashed-glow 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes dashed-glow {
+  from { box-shadow: inset 0 0 0 0 rgba(19, 26, 28, 0); }
+  to   { box-shadow: inset 0 0 24px 0 rgba(19, 26, 28, 0.04); }
+}
+
+/* 파일 아이콘 호버 */
+.upload-file-icon,
+.upload-file-icon-center {
+  transition: transform 0.3s ease;
+}
+
+.upload-outer-card:hover .upload-file-icon:first-child {
+  transform: rotate(-6deg) translateY(-2px);
+}
+.upload-outer-card:hover .upload-file-icon-center {
+  transform: translateY(-4px);
+}
+.upload-outer-card:hover .upload-file-icon:last-child {
+  transform: rotate(6deg) translateY(-2px);
+}
+
+/* 드래그 중 바운스 */
 @keyframes upload-bounce {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
+  50% { transform: translateY(-10px); }
 }
 
-@keyframes upload-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 115, 90, 0.4); }
-  50% { box-shadow: 0 0 0 16px rgba(232, 115, 90, 0); }
+.upload-icon-dragging-bounce {
+  animation: upload-bounce 0.8s ease-in-out infinite;
 }
 
+/* 페이드/팝 애니메이션 */
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -62,19 +101,6 @@ body {
   0% { transform: scale(0); opacity: 0; }
   50% { transform: scale(1.2); }
   100% { transform: scale(1); opacity: 1; }
-}
-
-.upload-icon-idle {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.upload-icon-idle:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(232, 115, 90, 0.3);
-}
-
-.upload-icon-dragging {
-  animation: upload-bounce 0.8s ease-in-out infinite, upload-pulse 1.6s ease-in-out infinite;
 }
 
 .upload-fade-in {

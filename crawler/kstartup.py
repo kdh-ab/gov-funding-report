@@ -1,6 +1,7 @@
 """K-Startup 정부지원사업 크롤러 (n8n 워크플로우 기반 재구현)"""
 
 import re
+import sys
 import time
 
 import requests
@@ -43,12 +44,12 @@ class KStartupCrawler:
         # 1단계: 총 페이지 수 파악
         total_pages = self._get_total_pages()
         actual_pages = min(total_pages, max_pages)
-        print(f"[K-Startup] 총 {total_pages}페이지 중 {actual_pages}페이지 크롤링")
+        print(f"[K-Startup] 총 {total_pages}페이지 중 {actual_pages}페이지 크롤링", file=sys.stderr)
 
         # 2단계: 목록 페이지 수집
         list_items = []
         for page in range(1, actual_pages + 1):
-            print(f"[K-Startup] 목록 페이지 {page}/{actual_pages} 수집 중...")
+            print(f"[K-Startup] 목록 페이지 {page}/{actual_pages} 수집 중...", file=sys.stderr)
             items = self._crawl_list_page(page)
             list_items.extend(items)
             if page < actual_pages:
@@ -61,7 +62,7 @@ class KStartupCrawler:
             if item["pbancSn"] not in seen:
                 seen.add(item["pbancSn"])
                 unique_items.append(item)
-        print(f"[K-Startup] 목록에서 {len(unique_items)}건 수집 (중복 제거)")
+        print(f"[K-Startup] 목록에서 {len(unique_items)}건 수집 (중복 제거)", file=sys.stderr)
 
         if not crawl_details:
             return [self._list_item_to_announcement(item) for item in unique_items]
@@ -69,13 +70,13 @@ class KStartupCrawler:
         # 3단계: 상세 페이지 순차 크롤링
         announcements = []
         for i, item in enumerate(unique_items, 1):
-            print(f"[K-Startup] 상세 크롤링 {i}/{len(unique_items)}: {item['title'][:40]}...")
+            print(f"[K-Startup] 상세 크롤링 {i}/{len(unique_items)}: {item['title'][:40]}...", file=sys.stderr)
             announcement = self._crawl_detail(item)
             announcements.append(announcement)
             if i < len(unique_items):
                 time.sleep(DETAIL_DELAY)
 
-        print(f"[K-Startup] 총 {len(announcements)}건 상세 수집 완료")
+        print(f"[K-Startup] 총 {len(announcements)}건 상세 수집 완료", file=sys.stderr)
         return announcements
 
     def _get_total_pages(self) -> int:
@@ -86,7 +87,7 @@ class KStartupCrawler:
             )
             resp.raise_for_status()
         except requests.RequestException as e:
-            print(f"[K-Startup] 첫 페이지 요청 실패: {e}")
+            print(f"[K-Startup] 첫 페이지 요청 실패: {e}", file=sys.stderr)
             return 1
 
         matches = re.findall(r"fn_egov_link_page\((\d+)\)", resp.text)
@@ -102,7 +103,7 @@ class KStartupCrawler:
             )
             resp.raise_for_status()
         except requests.RequestException as e:
-            print(f"[K-Startup] 목록 페이지 {page_no} 요청 실패: {e}")
+            print(f"[K-Startup] 목록 페이지 {page_no} 요청 실패: {e}", file=sys.stderr)
             return []
 
         return self._parse_list(resp.text)
@@ -149,7 +150,7 @@ class KStartupCrawler:
             resp = self.session.get(detail_url, timeout=TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException as e:
-            print(f"[K-Startup] 상세 요청 실패 (pbancSn={list_item['pbancSn']}): {e}")
+            print(f"[K-Startup] 상세 요청 실패 (pbancSn={list_item['pbancSn']}): {e}", file=sys.stderr)
             return self._list_item_to_announcement(list_item)
 
         return self._parse_detail(resp.text, list_item)

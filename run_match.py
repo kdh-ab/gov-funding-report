@@ -13,6 +13,11 @@ from data.store import AnnouncementStore
 from matcher.engine import RecommendationEngine
 
 
+def progress(step, message):
+    """프론트엔드 스트리밍용 구조화된 진행 메시지 출력."""
+    print(f"[PROGRESS] {step}|{message}", file=sys.stderr, flush=True)
+
+
 def crawl_fresh(store, max_pages=5):
     """K-Startup + BizInfo 실시간 크롤링.
 
@@ -21,26 +26,26 @@ def crawl_fresh(store, max_pages=5):
     all_announcements = []
 
     try:
-        print(f"[K-Startup] 크롤링 시작 (최대 {max_pages}페이지)...", file=sys.stderr)
+        progress("kstartup", "K-Startup 공고를 수집하고 있습니다...")
         kstartup = KStartupCrawler()
         k_items = kstartup.crawl(max_pages=max_pages)
         all_announcements.extend(k_items)
         if k_items:
             store.save(k_items, "K-Startup")
-        print(f"[K-Startup] {len(k_items)}건 수집 완료", file=sys.stderr)
+        progress("kstartup_done", f"K-Startup에서 {len(k_items)}건 수집 완료")
     except Exception as e:
-        print(f"[K-Startup] 크롤링 오류: {e}", file=sys.stderr)
+        progress("kstartup_error", f"K-Startup 수집 중 오류 발생: {e}")
 
     try:
-        print(f"[BIZINFO] 크롤링 시작 (최대 {max_pages}페이지)...", file=sys.stderr)
+        progress("bizinfo", "기업마당 공고를 수집하고 있습니다...")
         bizinfo = BizinfoCrawler()
         b_items = bizinfo.crawl(max_pages=max_pages)
         all_announcements.extend(b_items)
         if b_items:
             store.save(b_items, "BIZINFO")
-        print(f"[BIZINFO] {len(b_items)}건 수집 완료", file=sys.stderr)
+        progress("bizinfo_done", f"기업마당에서 {len(b_items)}건 수집 완료")
     except Exception as e:
-        print(f"[BIZINFO] 크롤링 오류: {e}", file=sys.stderr)
+        progress("bizinfo_error", f"기업마당 수집 중 오류 발생: {e}")
 
     return all_announcements
 
@@ -55,10 +60,10 @@ def run(company_name, refresh=False):
     store = AnnouncementStore()
 
     if refresh:
-        print("[크롤링] 실시간 크롤링 시작...", file=sys.stderr)
+        progress("start", "최신 공고 데이터를 수집합니다...")
         announcements = crawl_fresh(store)
         if not announcements:
-            # 크롤링 실패 시 캐시/시드 데이터 폴백
+            progress("fallback", "크롤링 결과가 없어 캐시 데이터를 사용합니다")
             announcements = store.get_all(use_seed=True)
     else:
         announcements = store.get_all(use_seed=True)
@@ -67,8 +72,10 @@ def run(company_name, refresh=False):
         print(json.dumps({"error": "공고 데이터가 없습니다."}))
         sys.exit(1)
 
+    progress("matching", f"{len(announcements)}건의 공고를 분석하고 있습니다...")
     engine = RecommendationEngine(profile)
     matches = engine.recommend(announcements)
+    progress("done", f"분석 완료! {len(matches)}건의 맞춤 공고를 찾았습니다")
 
     # 크롤링 날짜 추출
     crawled_at = ""
@@ -87,6 +94,7 @@ def run(company_name, refresh=False):
             {
                 "rank": i + 1,
                 "score": m.score,
+                "level": m.level,
                 "match_reasons": m.match_reasons,
                 "announcement": m.announcement.to_dict(),
             }

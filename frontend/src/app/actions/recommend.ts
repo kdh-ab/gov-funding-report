@@ -10,6 +10,7 @@ const execFileAsync = promisify(execFile);
 export interface MatchedAnnouncement {
   rank: number;
   score: number;
+  level: number;  // 시그널 레벨 1~5
   match_reasons: string[];
   announcement: {
     pbancSn: string;
@@ -18,6 +19,7 @@ export interface MatchedAnnouncement {
     supportField: string;
     targetAge: string;
     orgType: string;
+    department: string;
     region: string;
     receptionPeriod: string;
     supervisionOrg: string;
@@ -25,7 +27,9 @@ export interface MatchedAnnouncement {
     bizExperience: string;
     contact: string;
     contentText: string;
+    attachments: { fileName: string; downloadUrl: string }[];
     detailUrl: string;
+    crawledAt: string;
   };
 }
 

@@ -107,8 +107,9 @@ class CompanyProfile:
 
 @dataclass
 class MatchResult:
-    """매칭 결과: 공고 + 점수 + 사유."""
+    """매칭 결과: 공고 + 적합도 점수 + 시그널 레벨 + 사유."""
     announcement: Announcement = field(default_factory=Announcement)
     score: float = 0.0
+    level: int = 1  # 시그널 레벨 1~5
     match_reasons: list = field(default_factory=list)
     reject_reasons: list = field(default_factory=list)

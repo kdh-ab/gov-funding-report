@@ -1,6 +1,7 @@
 """보고서 생성 모듈 — CEO 관점 맞춤형 추천 보고서."""
 
 import os
+import sys
 from datetime import datetime
 
 import pandas as pd
@@ -85,7 +86,7 @@ class ReportGenerator:
                 a = m.announcement
                 rec_rows.append({
                     "순위": rank,
-                    "적합도": f"{m.score:.0f}점",
+                    "적합도": f"{'▐' * m.level}{'·' * (5 - m.level)}",
                     "사업명": a.title,
                     "지원분야": a.supportField,
                     "주관기관": a.supervisionOrg,
@@ -151,7 +152,7 @@ class ReportGenerator:
                     writer, sheet_name="통계", index=False, startrow=start
                 )
 
-        print(f"추천 보고서(Excel) 생성 완료: {filepath}")
+        print(f"추천 보고서(Excel) 생성 완료: {filepath}", file=sys.stderr)
         return filepath
 
     # ──────────────────────────────────────────────
@@ -309,7 +310,7 @@ class ReportGenerator:
                     a.title[:35] + ("..." if len(a.title) > 35 else ""),
                     a.supervisionOrg[:15],
                     a.receptionPeriod[:20],
-                    f"{m.score:.0f}점",
+                    f"{'▐' * m.level}{'·' * (5 - m.level)}",
                 ])
 
             full_table = Table(
@@ -333,7 +334,7 @@ class ReportGenerator:
             elements.append(full_table)
 
         doc.build(elements)
-        print(f"추천 보고서(PDF) 생성 완료: {filepath}")
+        print(f"추천 보고서(PDF) 생성 완료: {filepath}", file=sys.stderr)
         return filepath
 
     # ──────────────────────────────────────────────
@@ -359,7 +360,7 @@ class ReportGenerator:
                 stats = df.groupby("출처")["상태"].value_counts().unstack(fill_value=0)
                 stats.to_excel(writer, sheet_name="통계")
 
-        print(f"Excel 보고서 생성 완료: {filepath}")
+        print(f"Excel 보고서 생성 완료: {filepath}", file=sys.stderr)
         return filepath
 
     def _generate_simple_pdf(self, data, title, timestamp):
@@ -397,7 +398,7 @@ class ReportGenerator:
         ]))
         elements.append(table)
         doc.build(elements)
-        print(f"PDF 보고서 생성 완료: {filepath}")
+        print(f"PDF 보고서 생성 완료: {filepath}", file=sys.stderr)
         return filepath
 
     # ──────────────────────────────────────────────

@@ -1,6 +1,7 @@
 """BIZINFO (기업마당) 정부지원사업 크롤러"""
 
 import re
+import sys
 import time
 
 import requests
@@ -38,10 +39,10 @@ class BizinfoCrawler:
         all_items = []
 
         for page in range(1, max_pages + 1):
-            print(f"[BIZINFO] 목록 페이지 {page}/{max_pages} 수집 중...")
+            print(f"[BIZINFO] 목록 페이지 {page}/{max_pages} 수집 중...", file=sys.stderr)
             items = self._crawl_list_page(page)
             if not items:
-                print(f"[BIZINFO] 페이지 {page}에서 결과 없음, 수집 종료")
+                print(f"[BIZINFO] 페이지 {page}에서 결과 없음, 수집 종료", file=sys.stderr)
                 break
             all_items.extend(items)
             if page < max_pages:
@@ -56,7 +57,7 @@ class BizinfoCrawler:
                 seen.add(key)
                 unique.append(item)
 
-        print(f"[BIZINFO] 목록에서 {len(unique)}건 수집")
+        print(f"[BIZINFO] 목록에서 {len(unique)}건 수집", file=sys.stderr)
 
         if not crawl_details or not unique:
             return [self._list_item_to_announcement(item) for item in unique]
@@ -65,7 +66,7 @@ class BizinfoCrawler:
         announcements = []
         for i, item in enumerate(unique, 1):
             if item.get("link"):
-                print(f"[BIZINFO] 상세 크롤링 {i}/{len(unique)}: {item['title'][:40]}...")
+                print(f"[BIZINFO] 상세 크롤링 {i}/{len(unique)}: {item['title'][:40]}...", file=sys.stderr)
                 announcement = self._crawl_detail(item)
                 announcements.append(announcement)
                 if i < len(unique):
@@ -73,7 +74,7 @@ class BizinfoCrawler:
             else:
                 announcements.append(self._list_item_to_announcement(item))
 
-        print(f"[BIZINFO] 총 {len(announcements)}건 상세 수집 완료")
+        print(f"[BIZINFO] 총 {len(announcements)}건 상세 수집 완료", file=sys.stderr)
         return announcements
 
     def _crawl_list_page(self, page_no: int) -> list[dict]:
@@ -101,7 +102,7 @@ class BizinfoCrawler:
             resp.raise_for_status()
             return self._parse_list(resp.text)
         except requests.RequestException as e:
-            print(f"[BIZINFO] 페이지 {page_no} 요청 실패: {e}")
+            print(f"[BIZINFO] 페이지 {page_no} 요청 실패: {e}", file=sys.stderr)
             return []
 
     def _parse_list(self, html: str) -> list[dict]:
@@ -110,18 +111,21 @@ class BizinfoCrawler:
         items = []
 
         # 패턴 1: 테이블 기반 목록
+        # 컬럼: 번호(0), 지원분야(1), 지원사업명(2), 신청기간(3),
+        #        소관부처·지자체(4), 사업수행기관(5), 등록일(6), 조회수(7)
         rows = soup.select("table tbody tr")
         for row in rows:
             cols = row.select("td")
-            if len(cols) < 5:
+            if len(cols) < 6:
                 continue
             items.append({
                 "source": "BIZINFO",
-                "title": cols[1].get_text(strip=True),
-                "organization": cols[2].get_text(strip=True),
+                "title": cols[2].get_text(strip=True),
+                "supportField": cols[1].get_text(strip=True),
+                "organization": cols[5].get_text(strip=True),
+                "department": cols[4].get_text(strip=True),
                 "period": cols[3].get_text(strip=True),
-                "status": cols[4].get_text(strip=True),
-                "link": self._extract_link(cols[1]),
+                "link": self._extract_link(cols[2]),
             })
 
         if items:
@@ -158,7 +162,7 @@ class BizinfoCrawler:
             resp = self.session.get(link, timeout=TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException as e:
-            print(f"[BIZINFO] 상세 요청 실패: {e}")
+            print(f"[BIZINFO] 상세 요청 실패: {e}", file=sys.stderr)
             return self._list_item_to_announcement(list_item)
 
         return self._parse_detail(resp.text, list_item)
@@ -167,46 +171,54 @@ class BizinfoCrawler:
         """상세 HTML에서 가능한 한 많은 필드를 추출한다."""
         soup = BeautifulSoup(html, "lxml")
 
-        # 제목
-        title_el = soup.select_one("h3.tit, .view_title h3, .subject")
-        title = title_el.get_text(strip=True) if title_el else list_item.get("title", "")
+        # 제목: 상세 페이지에 별도 제목 요소가 없으므로 목록에서 가져옴
+        title = list_item.get("title", "")
 
-        # 메타 테이블에서 key-value 추출
+        # 메타정보 추출: ul > li > span.s_title + div.txt 구조
         meta = {}
-        # 패턴: th/td 쌍
-        for row in soup.select("table.view_table tr, .info_table tr, .detail_info tr"):
-            th = row.select_one("th")
-            td = row.select_one("td")
-            if th and td:
-                key = th.get_text(strip=True)
-                value = td.get_text(strip=True)
+        content_text = ""
+        for li in soup.select(".view_cont li"):
+            key_el = li.select_one("span.s_title")
+            val_el = li.select_one("div.txt")
+            if key_el and val_el:
+                key = key_el.get_text(strip=True)
+                value = " ".join(val_el.get_text(strip=True).split())
                 if key and value:
-                    meta[key] = value
+                    if key == "사업개요":
+                        content_text = value[:5000]
+                    else:
+                        meta[key] = value
 
-        # dl > dt/dd 패턴
-        dts = soup.select("dl dt, .info_list dt")
-        dds = soup.select("dl dd, .info_list dd")
-        for dt, dd in zip(dts, dds):
-            key = dt.get_text(strip=True)
-            value = dd.get_text(strip=True)
-            if key and value:
-                meta[key] = value
+        # 폴백: th/td 테이블 구조 (구버전 페이지 대응)
+        if not meta:
+            for row in soup.select("table.view_table tr, .info_table tr, .detail_info tr"):
+                th = row.select_one("th")
+                td = row.select_one("td")
+                if th and td:
+                    key = th.get_text(strip=True)
+                    value = td.get_text(strip=True)
+                    if key and value:
+                        meta[key] = value
 
-        # 본문
-        content_el = soup.select_one(".view_cont, .content, .board_view")
-        content_text = content_el.get_text(strip=True)[:5000] if content_el else ""
+        # 본문 폴백
+        if not content_text:
+            content_el = soup.select_one(".view_cont, .content, .board_view")
+            content_text = content_el.get_text(strip=True)[:5000] if content_el else ""
 
-        # 첨부파일
+        # 첨부파일: .attached_file_list 구조
         attachments = []
-        for file_el in soup.select(".file_list a, .attach a, .board_file a"):
-            name = file_el.get_text(strip=True)
-            url = file_el.get("href", "")
-            if name and url:
-                if not url.startswith("http"):
-                    url = f"{self.BASE_URL}{url}"
-                attachments.append({"fileName": name, "downloadUrl": url})
+        for li in soup.select(".attached_file_list li"):
+            name_el = li.select_one(".file_name")
+            dl_el = li.select_one("a[href*='fileDown']")
+            if name_el and dl_el:
+                name = name_el.get_text(strip=True)
+                url = dl_el.get("href", "")
+                if name and url:
+                    if not url.startswith("http"):
+                        url = f"{self.BASE_URL}{url}"
+                    attachments.append({"fileName": name, "downloadUrl": url})
 
-        # 기업마당 필드 매핑 (K-Startup과 키 이름이 다를 수 있음)
+        # 필드 매핑
         region = (
             meta.get("지역", "")
             or meta.get("사업지역", "")
@@ -222,16 +234,16 @@ class BizinfoCrawler:
             pbancSn="",
             source="BIZINFO",
             title=title,
-            supportField=meta.get("지원분야", meta.get("사업분야", "")),
+            supportField=meta.get("지원분야", list_item.get("supportField", "")),
             targetAge=meta.get("대상연령", ""),
             orgType=meta.get("기관구분", meta.get("기관유형", "")),
-            department=meta.get("담당부서", ""),
+            department=meta.get("소관부처·지자체", meta.get("담당부서", list_item.get("department", ""))),
             region=region,
-            receptionPeriod=meta.get("접수기간", meta.get("신청기간", list_item.get("period", ""))),
-            supervisionOrg=meta.get("주관기관", meta.get("수행기관", list_item.get("organization", ""))),
+            receptionPeriod=meta.get("신청기간", meta.get("접수기간", list_item.get("period", ""))),
+            supervisionOrg=meta.get("사업수행기관", meta.get("주관기관", list_item.get("organization", ""))),
             target=target,
             bizExperience=meta.get("창업업력", ""),
-            contact=meta.get("연락처", meta.get("문의처", "")),
+            contact=meta.get("문의처", meta.get("연락처", "")),
             contentText=content_text,
             attachments=attachments,
             detailUrl=list_item.get("link", ""),
@@ -263,7 +275,9 @@ class BizinfoCrawler:
         return Announcement(
             source="BIZINFO",
             title=item.get("title", ""),
+            supportField=item.get("supportField", ""),
             supervisionOrg=item.get("organization", ""),
+            department=item.get("department", ""),
             receptionPeriod=item.get("period", ""),
             detailUrl=item.get("link", ""),
         )
