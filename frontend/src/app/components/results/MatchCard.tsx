@@ -98,6 +98,18 @@ export function MatchCardList({
               {a.receptionPeriod && <span>접수: {a.receptionPeriod}</span>}
               {a.region && <span>지역: {a.region}</span>}
             </div>
+            {match.match_reasons.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {match.match_reasons.slice(0, 3).map((reason, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">
+                    {reason}
+                  </span>
+                ))}
+                {match.match_reasons.length > 3 && (
+                  <span className="text-[10px] text-slate-400">+{match.match_reasons.length - 3}</span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
             <MatchLevel match={match} />

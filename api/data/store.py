@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 import os
 from datetime import datetime
@@ -6,16 +7,29 @@ from typing import Optional
 
 from config import settings
 from data.models import Announcement
+from data.database import (
+    is_db_available,
+    upsert_announcements,
+    get_announcements,
+    get_cache_info as db_get_cache_info,
+)
 
 
 class AnnouncementStore:
-    """크롤링 결과 캐시 관리."""
+    """크롤링 결과 캐시 관리. DB가 있으면 DB 우선, 없으면 파일 기반."""
 
     def __init__(self):
-        os.makedirs(settings.CACHE_DIR, exist_ok=True)
+        if not is_db_available():
+            os.makedirs(settings.CACHE_DIR, exist_ok=True)
 
     def save(self, announcements: list[Announcement], source: str) -> str:
-        """크롤링 결과를 캐시 파일로 저장한다."""
+        """크롤링 결과를 저장한다."""
+        # DB가 있으면 DB에 저장
+        if is_db_available():
+            upsert_announcements(announcements)
+            return f"db:{source}:{len(announcements)}"
+
+        # 파일 기반 fallback
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{source.lower().replace('-', '')}_{timestamp}.json"
         filepath = os.path.join(settings.CACHE_DIR, filename)
@@ -31,7 +45,14 @@ class AnnouncementStore:
         return filepath
 
     def load_latest(self, source: str = None) -> list[Announcement]:
-        """가장 최근 캐시 파일에서 공고를 로드한다."""
+        """가장 최근 데이터를 로드한다."""
+        # DB 우선
+        if is_db_available():
+            items = get_announcements(source)
+            if items:
+                return items
+
+        # 파일 기반 fallback
         pattern = os.path.join(settings.CACHE_DIR, "*.json")
         files = sorted(glob(pattern), key=os.path.getmtime, reverse=True)
 
@@ -49,8 +70,8 @@ class AnnouncementStore:
         return self._load_file(filepath)
 
     def load_seed_data(self) -> list[Announcement]:
-        """프로젝트 루트의 result.json을 시드 데이터로 로드한다."""
-        seed_path = os.path.join(settings.BASE_DIR, "result.json")
+        """시드 데이터(result.json)를 로드한다."""
+        seed_path = settings.SEED_DATA_PATH
         if not os.path.exists(seed_path):
             return []
         return self._load_file(seed_path)
@@ -73,7 +94,7 @@ class AnnouncementStore:
         return announcements
 
     def get_all(self, use_seed: bool = True) -> list[Announcement]:
-        """캐시에서 모든 공고를 로드한다. 캐시가 없으면 시드 데이터를 사용한다."""
+        """공고를 로드한다. DB → 캐시 파일 → 시드 데이터 순서."""
         cached = self.load_latest()
         if cached:
             return cached
@@ -82,7 +103,14 @@ class AnnouncementStore:
         return []
 
     def get_cache_info(self) -> Optional[dict]:
-        """최신 캐시 파일의 메타 정보를 반환한다. 캐시 없으면 None."""
+        """최신 캐시 메타 정보를 반환한다."""
+        # DB 우선
+        if is_db_available():
+            info = db_get_cache_info()
+            if info:
+                return info
+
+        # 파일 기반 fallback
         pattern = os.path.join(settings.CACHE_DIR, "*.json")
         files = sorted(glob(pattern), key=os.path.getmtime, reverse=True)
         if not files:

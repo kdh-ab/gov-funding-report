@@ -1,3 +1,4 @@
+from __future__ import annotations
 """BIZINFO (기업마당) 정부지원사업 크롤러"""
 
 import re
@@ -126,6 +127,7 @@ class BizinfoCrawler:
                 "department": cols[4].get_text(strip=True),
                 "period": cols[3].get_text(strip=True),
                 "link": self._extract_link(cols[2]),
+                "viewCount": cols[7].get_text(strip=True) if len(cols) > 7 else "",
             })
 
         if items:
@@ -248,6 +250,7 @@ class BizinfoCrawler:
             attachments=attachments,
             detailUrl=list_item.get("link", ""),
             crawledAt="",
+            viewCount=self._parse_view_count(list_item.get("viewCount", "")),
         )
 
     def _extract_link(self, td) -> str:
@@ -271,7 +274,14 @@ class BizinfoCrawler:
         return ""
 
     @staticmethod
-    def _list_item_to_announcement(item: dict) -> Announcement:
+    def _parse_view_count(text: str) -> int:
+        """조회수 텍스트에서 숫자를 추출한다."""
+        if not text:
+            return 0
+        digits = re.sub(r"[^\d]", "", text)
+        return int(digits) if digits else 0
+
+    def _list_item_to_announcement(self, item: dict) -> Announcement:
         return Announcement(
             source="BIZINFO",
             title=item.get("title", ""),
@@ -280,4 +290,5 @@ class BizinfoCrawler:
             department=item.get("department", ""),
             receptionPeriod=item.get("period", ""),
             detailUrl=item.get("link", ""),
+            viewCount=self._parse_view_count(item.get("viewCount", "")),
         )

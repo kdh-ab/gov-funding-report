@@ -1,3 +1,4 @@
+from __future__ import annotations
 """맞춤형 정부지원사업 추천 엔진.
 
 2단계 구조:
@@ -271,13 +272,87 @@ class RecommendationEngine:
 
         level = _score_to_level(total)
 
+        # 3단계: 예상 경쟁 강도
+        comp_level, comp_reasons = self._estimate_competition(ann)
+
         return MatchResult(
             announcement=ann,
             score=total,
             level=level,
             match_reasons=match_reasons,
             reject_reasons=all_reject,
+            competition_level=comp_level,
+            competition_reasons=comp_reasons,
         )
+
+    def _estimate_competition(self, ann: Announcement) -> tuple:
+        """공고의 예상 경쟁 강도를 1~5로 추정한다.
+
+        시그널:
+          - 조회수 (BizInfo만 제공)
+          - 자격요건 범위 (넓을수록 경쟁 치열)
+          - 지원분야 인기도
+          - 지역 범위 (전국 > 특정 지역)
+          - 마감 임박도 (임박할수록 누적 지원자 많음)
+        """
+        score = 0.0
+        reasons = []
+
+        # 1) 조회수 — 가장 직접적인 지표 (BizInfo)
+        if ann.viewCount > 0:
+            if ann.viewCount >= 1000:
+                score += 2.0
+                reasons.append(f"조회수 {ann.viewCount:,}회")
+            elif ann.viewCount >= 500:
+                score += 1.5
+                reasons.append(f"조회수 {ann.viewCount:,}회")
+            elif ann.viewCount >= 200:
+                score += 1.0
+                reasons.append(f"조회수 {ann.viewCount:,}회")
+            elif ann.viewCount >= 50:
+                score += 0.5
+
+        # 2) 지역 범위
+        region = ann.region.strip()
+        if not region or region == "전국" or "전국" in region:
+            score += 1.0
+            reasons.append("전국 대상")
+        elif "," in region or "·" in region:
+            score += 0.5
+            reasons.append("복수 지역")
+
+        # 3) 자격요건 범위 — 조건이 적을수록 넓은 문
+        narrow_count = 0
+        if ann.targetAge:
+            narrow_count += 1
+        if ann.bizExperience:
+            narrow_count += 1
+        if ann.target and ("예비" not in ann.target):
+            narrow_count += 1
+
+        if narrow_count == 0:
+            score += 1.0
+            reasons.append("자격제한 없음")
+        elif narrow_count == 1:
+            score += 0.5
+
+        # 4) 지원분야 인기도
+        popular_fields = {"사업화", "R&D", "융자"}
+        if any(f in (ann.supportField or "") for f in popular_fields):
+            score += 0.5
+            reasons.append(f"{ann.supportField} 분야")
+
+        # 5) 마감 임박 — 누적 신청자가 많을 시기
+        _, end = self.parser.parse_reception_period(ann.receptionPeriod)
+        if end is not None:
+            days_left = (end.date() - date.today()).days
+            if 0 <= days_left <= 7:
+                score += 0.5
+                reasons.append("마감임박")
+
+        # 0~5 범위로 클램프, 최소 1
+        level = max(1, min(5, round(score)))
+        return level, reasons
 
     @staticmethod
     def _tokenize(text: str) -> set[str]:

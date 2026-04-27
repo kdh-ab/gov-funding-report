@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import type { MatchedAnnouncement } from "../actions/recommend";
 import { parsePeriodEnd } from "../utils/announcement";
 
-export function useResultsFilters(matches: MatchedAnnouncement[]) {
+export function useResultsFilters(matches: MatchedAnnouncement[] = []) {
   const [sortBy, setSortBy] = useState<"score" | "deadline">("score");
   const [filterField, setFilterField] = useState("");
   const [filterRegion, setFilterRegion] = useState("");

@@ -1,4 +1,5 @@
-"""보고서 생성 이력 JSONL 로거."""
+from __future__ import annotations
+"""보고서 생성 이력 로거. DB 우선, 파일(JSONL) fallback."""
 
 import json
 import os
@@ -6,13 +7,19 @@ import uuid
 from datetime import datetime
 
 from config.settings import LOG_DIR, REPORT_LOG_FILE
+from data.database import (
+    is_db_available,
+    log_report as db_log_report,
+    get_report_history as db_get_report_history,
+)
 
 
 class ReportLogger:
-    """보고서 생성 이력을 JSONL 파일에 기록한다."""
+    """보고서 생성 이력을 기록한다."""
 
     def __init__(self):
-        os.makedirs(LOG_DIR, exist_ok=True)
+        if not is_db_available():
+            os.makedirs(LOG_DIR, exist_ok=True)
 
     def log(
         self,
@@ -26,7 +33,23 @@ class ReportLogger:
         crawl_source: str = "cache",
         crawl_date: str = "",
     ) -> dict:
-        """보고서 생성 이력을 한 줄로 기록한다."""
+        """보고서 생성 이력을 기록한다."""
+        # DB 우선
+        if is_db_available():
+            result = db_log_report(
+                company_name=company_name,
+                total_announcements=total_announcements,
+                recommended_count=recommended_count,
+                top_match_title=top_match_title,
+                top_match_score=top_match_score,
+                report_format=report_format,
+                crawl_source=crawl_source,
+                crawl_date=crawl_date,
+            )
+            if result:
+                return result
+
+        # 파일 기반 fallback
         entry = {
             "id": str(uuid.uuid4())[:8],
             "generated_at": datetime.now().isoformat(),
@@ -48,6 +71,13 @@ class ReportLogger:
 
     def get_history(self, company_name: str = None) -> list:
         """저장된 이력을 조회한다."""
+        # DB 우선
+        if is_db_available():
+            history = db_get_report_history(company_name)
+            if history:
+                return history
+
+        # 파일 기반 fallback
         if not os.path.exists(REPORT_LOG_FILE):
             return []
 

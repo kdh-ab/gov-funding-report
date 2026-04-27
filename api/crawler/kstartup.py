@@ -1,3 +1,4 @@
+from __future__ import annotations
 """K-Startup 정부지원사업 크롤러 (n8n 워크플로우 기반 재구현)"""
 
 import re
@@ -174,16 +175,32 @@ class KStartupCrawler:
         # 본문
         content_el = soup.select_one(".box .box_inner")
         content_text = content_el.get_text(strip=True)[:5000] if content_el else ""
+        # 본문 앞뒤에 반복되는 제목/푸터 제거
+        content_text = self._strip_header_footer(content_text, title)
 
         # 첨부파일
-        file_names = [el.get_text(strip=True) for el in soup.select(".board_file li a.file_bg")]
-        file_urls = [el.get("href", "") for el in soup.select(".board_file li a.btn_down")]
+        file_items = soup.select(".board_file li")
         attachments = []
-        for name, url in zip(file_names, file_urls):
-            if name and url:
-                if not url.startswith("http"):
-                    url = f"{self.BASE_URL}{url}"
-                attachments.append({"fileName": name, "downloadUrl": url})
+        for li in file_items:
+            name_el = li.select_one("a.file_bg")
+            down_el = li.select_one("a.btn_down")
+            view_el = li.select_one("a.btn_view")
+            if not name_el or not down_el:
+                continue
+            name = name_el.get_text(strip=True)
+            url = down_el.get("href", "")
+            if not name or not url:
+                continue
+            if not url.startswith("http"):
+                url = f"{self.BASE_URL}{url}"
+            # 바로보기 URL: fnPdfView('코드') → /web/cskin/jobJson.do?reqFileSqno=코드
+            view_url = ""
+            if view_el:
+                onclick = view_el.get("onclick", "")
+                m = re.search(r"fnPdfView\(['\"]([^'\"]+)['\"]\)", onclick)
+                if m:
+                    view_url = f"{self.BASE_URL}/web/cskin/jobJson.do?reqFileSqno={m.group(1)}"
+            attachments.append({"fileName": name, "downloadUrl": url, "viewUrl": view_url})
 
         return Announcement(
             pbancSn=list_item.get("pbancSn", ""),
@@ -204,6 +221,47 @@ class KStartupCrawler:
             detailUrl=list_item.get("detailUrl", ""),
             crawledAt="",
         )
+
+    @staticmethod
+    def _strip_header_footer(text: str, title: str) -> str:
+        """본문 앞뒤에 반복되는 제목/푸터를 제거한다.
+
+        K-Startup 상세 페이지 구조:
+          [제목반복][본문내용][제목반복][요약반복][YYYY년 MM월 DD일][기관명]
+        """
+        if not text or not title or len(title) < 4:
+            return text
+
+        # 제목 매칭 패턴 (공백 유연) — 푸터 탐색용 (짧게)
+        title_chars_short = re.sub(r"\s+", "", title)[:15]
+        title_pattern_short = r"\s*".join(re.escape(c) for c in title_chars_short)
+        # 전체 제목 패턴 — 헤더 제거용
+        title_chars_full = re.sub(r"\s+", "", title)
+        title_pattern_full = r"\s*".join(re.escape(c) for c in title_chars_full)
+
+        # 1) 헤더 제거: 본문이 공고번호+제목으로 시작하면 제거
+        #    공고번호("2026-제2호" 등)는 최대 30자 이내
+        head_match = re.search(title_pattern_full, text[:min(len(text), 30 + len(title))])
+        if head_match and head_match.start() <= 30:
+            text = text[head_match.end():].lstrip()
+
+        # 2) 푸터 제거: "YYYY년 MM월 DD일" + 기관명으로 끝나는 패턴
+        footer_match = re.search(
+            r"\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일\s*[가-힣a-zA-Z()\s]+\s*$",
+            text,
+        )
+        if footer_match:
+            cut_pos = footer_match.start()
+            # 날짜 앞에서 제목 반복 탐색
+            search_start = max(0, cut_pos - 500)
+            m = re.search(title_pattern_short, text[search_start:cut_pos])
+            if m:
+                title_pos = search_start + m.start()
+                if title_pos > len(text) * 0.15:
+                    cut_pos = title_pos
+            text = text[:cut_pos].rstrip()
+
+        return text
 
     @staticmethod
     def _list_item_to_announcement(item: dict) -> Announcement:

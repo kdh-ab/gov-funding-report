@@ -197,7 +197,7 @@ export function Step3Results({
       </div>
 
       {detailMatch && (
-        <AnnouncementDetailModal match={detailMatch} onClose={() => setDetailMatch(null)} />
+        <AnnouncementDetailModal match={detailMatch} company={formData} onClose={() => setDetailMatch(null)} />
       )}
 
       {refreshPending && <RefreshBanner progressMessages={progressMessages} />}

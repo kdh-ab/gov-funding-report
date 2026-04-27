@@ -1,3 +1,4 @@
+from __future__ import annotations
 """공고 데이터 파싱 및 정제 모듈"""
 
 import re

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """보고서 생성 모듈 — CEO 관점 맞춤형 추천 보고서."""
 
 import os

@@ -7,22 +7,25 @@
 **핵심 사용자**: 정부지원사업을 찾는 기업 대표자
 **핵심 가치**: "내가 신청할 수 있는 지원사업이 뭐야?"를 빠르게 답해주는 것
 
-## 아키텍처
+## 아키텍처 (모노레포 — Vercel 배포)
 
 ```
 frontend/          — Next.js 16 + Tailwind (App Router, Server Actions)
-├── 사업자등록증 OCR (Claude API)
+├── 사업자등록증 OCR (Claude API / Tesseract.js)
 ├── 기업정보 입력폼
 ├── 추천 결과 웹 렌더링
 └── 보고서 다운로드
 
-Python 백엔드 (subprocess로 호출)
+api/               — FastAPI 백엔드 (별도 Vercel 프로젝트)
+├── app.py         — FastAPI 진입점 (/recommend, /report, /health)
 ├── crawler/       — K-Startup, 기업마당 크롤러 (requests + BeautifulSoup)
 ├── matcher/       — 규칙 기반 추천 엔진 (Hard/Soft 필터 + 점수)
 ├── parser/        — 공고 데이터 파싱 (연령, 업력, 지역 등)
 ├── report/        — Excel/PDF 보고서 생성 (pandas, reportlab)
-├── data/          — 데이터 모델, 캐시, 기업 프로필 JSON
-└── company/       — 기업 프로필 CRUD
+├── data/          — 데이터 모델, 캐시, 시드 데이터
+└── company/       — 기업 프로필 유틸리티
+
+연동: Frontend Server Action → HTTP fetch → FastAPI 엔드포인트
 ```
 
 ## 사용자 플로우 (구현 목표)
@@ -60,18 +63,17 @@ Python 백엔드 (subprocess로 호출)
 
 ## 데이터
 
-- `result.json` — n8n 크롤링 결과 195건 (2026-02-27 기준, 시드 데이터)
+- `api/data/seed/result.json` — n8n 크롤링 결과 195건 (2026-02-27 기준, 시드 데이터)
 - `workflow.json` — n8n 워크플로우 원본 (CSS 선택자 레퍼런스)
-- `data/companies/*.json` — 기업 프로필 (gitignore됨)
-- `data/cache/*.json` — 크롤링 캐시 (gitignore됨)
-- `logs/report_history.jsonl` — 보고서 생성 이력 (gitignore됨)
+- Vercel 환경: /tmp 사용 (stateless), 시드 데이터만 번들에 포함
 
 ## 기술 스택
 
-- **Backend**: Python 3.9+ (requests, beautifulsoup4, lxml, pandas, openpyxl, reportlab)
+- **Backend**: FastAPI + Python 3.9+ (requests, beautifulsoup4, lxml, pandas, openpyxl, reportlab)
 - **Frontend**: Next.js 16, Tailwind CSS, TypeScript
-- **OCR**: Claude API (Vision) — 사업자등록증 이미지 → 구조화 데이터
-- **연동**: Server Action → Python subprocess
+- **OCR**: Claude API (Vision) / Tesseract.js — 사업자등록증 이미지 → 구조화 데이터
+- **연동**: Server Action → HTTP fetch → FastAPI
+- **배포**: Vercel 모노레포 (frontend/ + api/ 각각 별도 프로젝트)
 
 ## 현재 구현 상태
 
@@ -89,7 +91,7 @@ Python 백엔드 (subprocess로 호출)
 - [x] 사업자등록증 OCR (Claude API Vision Server Action)
 - [x] 스텝형 폼 UI (업로드 → 자동입력 → 보완입력 → 결과)
 - [x] 추천 결과 웹 렌더링 (카드, D-day 뱃지, 적합도순/마감임박순, 분야필터)
-- [x] Server Action → Python subprocess 연동 (run_match.py, run_report.py)
+- [x] Server Action → FastAPI HTTP 연동 (subprocess에서 전환)
 - [x] 보고서 다운로드 (Excel/PDF, base64 전송)
 - [x] 데이터 최신성 표시
 

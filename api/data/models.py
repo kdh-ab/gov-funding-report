@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
@@ -23,6 +24,7 @@ class Announcement:
     attachments: list = field(default_factory=list)
     detailUrl: str = ""
     crawledAt: str = ""
+    viewCount: int = 0
 
     @classmethod
     def from_dict(cls, d: dict) -> "Announcement":
@@ -48,6 +50,7 @@ class Announcement:
             "attachments": self.attachments,
             "detailUrl": self.detailUrl,
             "crawledAt": self.crawledAt,
+            "viewCount": self.viewCount,
         }
 
 
@@ -113,3 +116,5 @@ class MatchResult:
     level: int = 1  # 시그널 레벨 1~5
     match_reasons: list = field(default_factory=list)
     reject_reasons: list = field(default_factory=list)
+    competition_level: int = 0  # 예상 경쟁 강도 1~5 (0=데이터 부족)
+    competition_reasons: list = field(default_factory=list)
