@@ -120,7 +120,6 @@ class KStartupCrawler:
         fields = soup.select(".middle li .top .flag:not(.day)")
         ddays = soup.select(".middle li .flag.day")
         agencies = soup.select(".middle li .flag_agency")
-
         for i, link_el in enumerate(links):
             href = link_el.get("href", "")
             match = re.search(r"go_view\((\d+)\)", href)
@@ -133,12 +132,29 @@ class KStartupCrawler:
             dday = ddays[i].get_text(strip=True) if i < len(ddays) else ""
             agency = agencies[i].get_text(strip=True) if i < len(agencies) else ""
 
+            # 조회수: 상위 li > .bottom > span.list 중 "조회" 포함된 텍스트
+            view_count = 0
+            li = link_el
+            for _ in range(10):
+                li = li.parent
+                if li.name == "li":
+                    break
+            if li.name == "li":
+                for span in li.select(".bottom span.list"):
+                    span_text = span.get_text()
+                    if "조회" in span_text:
+                        vc_match = re.search(r"([\d,]+)", span_text)
+                        if vc_match:
+                            view_count = int(vc_match.group(1).replace(",", ""))
+                        break
+
             items.append({
                 "pbancSn": pbanc_sn,
                 "title": title,
                 "field": field,
                 "dday": dday,
                 "agency": agency,
+                "viewCount": view_count,
                 "detailUrl": self.DETAIL_URL_TEMPLATE.format(pbanc_sn=pbanc_sn),
             })
 
@@ -220,6 +236,7 @@ class KStartupCrawler:
             attachments=attachments,
             detailUrl=list_item.get("detailUrl", ""),
             crawledAt="",
+            viewCount=list_item.get("viewCount", 0),
         )
 
     @staticmethod
@@ -272,4 +289,5 @@ class KStartupCrawler:
             title=item.get("title", ""),
             supportField=item.get("field", ""),
             detailUrl=item.get("detailUrl", ""),
+            viewCount=item.get("viewCount", 0),
         )

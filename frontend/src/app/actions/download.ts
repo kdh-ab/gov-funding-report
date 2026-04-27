@@ -4,8 +4,6 @@ export type DownloadResult =
   | { success: true; base64: string; filename: string; mimeType: string }
   | { success: false; error: string };
 
-const API_URL = process.env.API_URL || "http://localhost:8000";
-
 export async function generateReport(
   companyName: string,
   format: "xlsx" | "pdf",
@@ -15,8 +13,10 @@ export async function generateReport(
     return { success: false, error: "기업명이 필요합니다." };
   }
 
+  const apiUrl = process.env.API_URL || "http://localhost:8000";
+
   try {
-    const resp = await fetch(`${API_URL}/report`, {
+    const resp = await fetch(`${apiUrl}/report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

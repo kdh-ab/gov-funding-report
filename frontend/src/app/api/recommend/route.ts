@@ -1,5 +1,3 @@
-const API_URL = process.env.API_URL || "http://localhost:8000";
-
 export async function POST(request: Request) {
   const { formData, refresh } = await request.json();
 
@@ -7,7 +5,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "기업명은 필수입니다." }, { status: 400 });
   }
 
-  const upstream = await fetch(`${API_URL}/recommend/stream`, {
+  const apiUrl = process.env.API_URL || "http://localhost:8000";
+
+  const upstream = await fetch(`${apiUrl}/recommend/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ company: formData, refresh }),

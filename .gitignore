@@ -15,3 +15,4 @@ data/cache/
 data/companies/
 .DS_Store
 .claude/
+.vercel

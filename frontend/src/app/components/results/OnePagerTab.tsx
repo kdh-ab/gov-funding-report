@@ -65,6 +65,73 @@ function buildChecklist(match: MatchedAnnouncement, company: CompanyFormData) {
   return items;
 }
 
+/** API에 competition_level이 없을 때 (구 데이터) 클라이언트 사이드 추정 */
+function estimateCompetition(a: MatchedAnnouncement["announcement"]): { level: number; reasons: string[] } {
+  let score = 2.0; // 베이스라인: 정부지원사업은 기본적으로 경쟁 존재
+  const reasons: string[] = [];
+
+  // 조회수
+  if (a.viewCount && a.viewCount >= 200) {
+    score += a.viewCount >= 1000 ? 1.5 : a.viewCount >= 500 ? 1.0 : 0.5;
+    reasons.push(`조회수 ${a.viewCount.toLocaleString()}회`);
+  }
+
+  // 지역 범위
+  const region = (a.region || "").trim();
+  if (!region || region === "전국" || region.includes("전국")) {
+    score += 1.0;
+    reasons.push("전국 대상");
+  } else if (region.includes(",") || region.includes("·")) {
+    score += 0.5;
+  }
+
+  // 자격제한
+  let narrow = 0;
+  if (a.targetAge) narrow++;
+  if (a.bizExperience) narrow++;
+  if (a.target && !a.target.includes("예비")) narrow++;
+  if (narrow === 0) {
+    score += 1.0;
+    reasons.push("자격제한 없음");
+  } else if (narrow === 1) {
+    score += 0.5;
+  }
+
+  // 업력
+  const biz = (a.bizExperience || "").trim();
+  if (biz) {
+    if (biz.includes("예비") || biz.includes("1년")) {
+      score += 1.0;
+      reasons.push("예비·초기창업 대상");
+    } else if (biz.includes("3년")) {
+      score += 0.5;
+      reasons.push("3년 이내 대상");
+    } else if (biz.includes("7년") || biz.includes("10년")) {
+      score -= 0.5;
+      reasons.push("업력 제한 있음");
+    }
+  }
+
+  // 분야 인기도
+  const popular = ["사업화", "R&D", "융자"];
+  const niche = ["시설·공간", "멘토링·컨설팅", "행사·네트워크"];
+  if (popular.some((f) => (a.supportField || "").includes(f))) {
+    score += 0.5;
+    reasons.push(`${a.supportField} 분야`);
+  } else if (niche.some((f) => (a.supportField || "").includes(f))) {
+    score -= 0.5;
+  }
+
+  // 마감임박
+  const dday = getDday(a.receptionPeriod);
+  if (dday !== null && dday >= 0 && dday <= 7) {
+    score += 0.5;
+    reasons.push("마감임박");
+  }
+
+  return { level: Math.max(1, Math.min(5, Math.round(score))), reasons };
+}
+
 function getVerdict(level: number): { text: string; sub: string; color: string; bg: string; border: string } {
   if (level >= 4) return { text: "신청 추천", sub: "귀사의 조건에 부합하는 공고입니다", color: "text-blue-800", bg: "bg-blue-50", border: "border-blue-200" };
   if (level >= 3) return { text: "검토 권장", sub: "일부 조건이 부합하며 세부 확인이 필요합니다", color: "text-slate-800", bg: "bg-slate-50", border: "border-slate-200" };
@@ -84,6 +151,12 @@ export function OnePagerTab({
   const { start, end } = parseReceptionDates(a.receptionPeriod);
   const verdict = getVerdict(match.level);
   const today = new Date();
+
+  // 경쟁 강도: API 값 우선, 없으면 클라이언트 추정
+  const hasServerCompetition = match.competition_level && match.competition_level > 0;
+  const competition = hasServerCompetition
+    ? { level: match.competition_level!, reasons: match.competition_reasons ?? [] }
+    : estimateCompetition(a);
 
   // 동적 섹션 번호
   let secNum = 0;
@@ -143,7 +216,7 @@ export function OnePagerTab({
         </div>
 
         {/* 구분선 + 섹션 번호 스타일 */}
-        <div className="px-8 mt-6 space-y-5 pb-8">
+        <div className="px-8 mt-6 space-y-8 pb-8">
 
           {/* 1. AI 요약 */}
           <section>
@@ -158,10 +231,10 @@ export function OnePagerTab({
                 </div>
                 <div>
                   <p className="text-[12px] text-slate-500 leading-relaxed">
-                    이 공고의 핵심 내용, 예상 지원 혜택, 귀사에 맞는 신청 전략을 AI가 분석하여 제공할 예정입니다.
+                    이 공고의 핵심 내용, 예상 지원 혜택, 귀사에 맞는 신청 전략을 AI가 분석하여 제공합니다.
                   </p>
                   <span className="inline-block mt-2 text-[10px] px-2 py-0.5 bg-violet-50 text-violet-500 rounded border border-violet-200 font-medium">
-                    LLM API 연동 예정
+                    OPEN 예정
                   </span>
                 </div>
               </div>
@@ -180,7 +253,6 @@ export function OnePagerTab({
                       <span className="text-slate-300">|</span>
                       <span>접수 마감 <strong className={`ml-1 ${dday !== null && dday <= 7 ? "text-red-600" : "text-slate-800"}`}>{fmtDate(end)}</strong></span>
                     </div>
-                    {/* 타임라인 바 */}
                     <TimelineBar start={start} end={end} />
                   </div>
                 ) : (
@@ -226,7 +298,7 @@ export function OnePagerTab({
           {/* 예상 경쟁 강도 */}
           <section>
             <SectionHead num={String(SEC_COMPETITION)} title="예상 경쟁 강도" />
-            <CompetitionGauge level={match.competition_level ?? 0} reasons={match.competition_reasons} />
+            <CompetitionGauge level={competition.level} reasons={competition.reasons} />
           </section>
 
           {/* 사업 개요 */}
@@ -266,17 +338,15 @@ export function OnePagerTab({
 }
 
 const COMP_LABELS = ["", "매우 낮음", "낮음", "보통", "높음", "매우 높음"];
-const COMP_COLORS = ["", "bg-emerald-400", "bg-emerald-300", "bg-amber-400", "bg-orange-400", "bg-red-400"];
-const COMP_TEXT_COLORS = ["text-slate-400", "text-emerald-700", "text-emerald-600", "text-amber-700", "text-orange-700", "text-red-700"];
+const COMP_COLORS = ["", "bg-blue-300", "bg-blue-400", "bg-amber-400", "bg-orange-400", "bg-red-400"];
+const COMP_TEXT_COLORS = ["text-slate-400", "text-blue-600", "text-blue-700", "text-amber-700", "text-orange-700", "text-red-700"];
 
-function CompetitionGauge({ level, reasons }: { level: number; reasons?: string[] }) {
-  const clamped = Math.max(0, Math.min(5, level || 0));
-  const safeReasons = reasons ?? [];
+function CompetitionGauge({ level, reasons }: { level: number; reasons: string[] }) {
+  const clamped = Math.max(1, Math.min(5, level));
 
   return (
     <div className="mt-2 space-y-3">
-      {/* 게이지 바 */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((i) => (
             <div
@@ -287,31 +357,19 @@ function CompetitionGauge({ level, reasons }: { level: number; reasons?: string[
             />
           ))}
         </div>
-        <div className="flex justify-between items-center">
-          <span className={`text-[12px] font-bold ${COMP_TEXT_COLORS[clamped]}`}>
-            {clamped > 0 ? COMP_LABELS[clamped] : "데이터 부족"}
-          </span>
-          <span className="text-[10px] text-slate-400">
-            {clamped <= 2 ? "신청 유리" : clamped <= 3 ? "평균 수준" : "경쟁 치열"}
-          </span>
-        </div>
+        <p className={`text-[12px] font-bold mt-1 ${COMP_TEXT_COLORS[clamped]}`}>
+          {COMP_LABELS[clamped]}
+        </p>
       </div>
 
-      {/* 근거 */}
-      {safeReasons.length > 0 && (
+      {reasons.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {safeReasons.map((r, i) => (
+          {reasons.map((r, i) => (
             <span key={i} className="text-[11px] px-2 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-100">
               {r}
             </span>
           ))}
         </div>
-      )}
-
-      {clamped === 0 && (
-        <p className="text-[11px] text-slate-400">
-          조회수 등 경쟁 강도 추정에 필요한 데이터가 부족합니다.
-        </p>
       )}
     </div>
   );

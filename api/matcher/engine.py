@@ -295,22 +295,21 @@ class RecommendationEngine:
           - 지역 범위 (전국 > 특정 지역)
           - 마감 임박도 (임박할수록 누적 지원자 많음)
         """
-        score = 0.0
+        # 베이스라인: 정부지원사업은 기본적으로 경쟁이 있음
+        score = 2.0
         reasons = []
 
         # 1) 조회수 — 가장 직접적인 지표 (BizInfo)
         if ann.viewCount > 0:
             if ann.viewCount >= 1000:
-                score += 2.0
-                reasons.append(f"조회수 {ann.viewCount:,}회")
-            elif ann.viewCount >= 500:
                 score += 1.5
                 reasons.append(f"조회수 {ann.viewCount:,}회")
-            elif ann.viewCount >= 200:
+            elif ann.viewCount >= 500:
                 score += 1.0
                 reasons.append(f"조회수 {ann.viewCount:,}회")
-            elif ann.viewCount >= 50:
+            elif ann.viewCount >= 200:
                 score += 0.5
+                reasons.append(f"조회수 {ann.viewCount:,}회")
 
         # 2) 지역 범위
         region = ann.region.strip()
@@ -319,7 +318,6 @@ class RecommendationEngine:
             reasons.append("전국 대상")
         elif "," in region or "·" in region:
             score += 0.5
-            reasons.append("복수 지역")
 
         # 3) 자격요건 범위 — 조건이 적을수록 넓은 문
         narrow_count = 0
@@ -336,13 +334,29 @@ class RecommendationEngine:
         elif narrow_count == 1:
             score += 0.5
 
-        # 4) 지원분야 인기도
+        # 4) 업력 — 초기 창업일수록 지원자 풀이 넓음
+        biz = ann.bizExperience.strip()
+        if biz:
+            if "예비" in biz or "1년" in biz:
+                score += 1.0
+                reasons.append("예비·초기창업 대상")
+            elif "3년" in biz:
+                score += 0.5
+                reasons.append("3년 이내 대상")
+            elif "7년" in biz or "10년" in biz:
+                score -= 0.5
+                reasons.append("업력 제한 있음")
+
+        # 5) 지원분야 인기도
         popular_fields = {"사업화", "R&D", "융자"}
+        niche_fields = {"시설·공간", "멘토링·컨설팅", "행사·네트워크"}
         if any(f in (ann.supportField or "") for f in popular_fields):
             score += 0.5
             reasons.append(f"{ann.supportField} 분야")
+        elif any(f in (ann.supportField or "") for f in niche_fields):
+            score -= 0.5
 
-        # 5) 마감 임박 — 누적 신청자가 많을 시기
+        # 6) 마감 임박 — 누적 신청자가 많을 시기
         _, end = self.parser.parse_reception_period(ann.receptionPeriod)
         if end is not None:
             days_left = (end.date() - date.today()).days
@@ -350,7 +364,7 @@ class RecommendationEngine:
                 score += 0.5
                 reasons.append("마감임박")
 
-        # 0~5 범위로 클램프, 최소 1
+        # 1~5 범위로 클램프
         level = max(1, min(5, round(score)))
         return level, reasons
 

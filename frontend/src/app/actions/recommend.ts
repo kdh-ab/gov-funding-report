@@ -64,8 +64,6 @@ export interface CompanyFormData {
   business_item_summary: string;
 }
 
-const API_URL = process.env.API_URL || "http://localhost:8000";
-
 export async function runRecommendation(
   data: CompanyFormData,
   refresh: boolean = false
@@ -74,8 +72,10 @@ export async function runRecommendation(
     return { success: false, error: "기업명은 필수입니다." };
   }
 
+  const apiUrl = process.env.API_URL || "http://localhost:8000";
+
   try {
-    const resp = await fetch(`${API_URL}/recommend`, {
+    const resp = await fetch(`${apiUrl}/recommend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ company: data, refresh }),

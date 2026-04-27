@@ -3,7 +3,8 @@ import os
 import tempfile
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(".env.local", override=True)
+load_dotenv(override=True)
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 IS_VERCEL = os.environ.get("VERCEL") == "1"

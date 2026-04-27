@@ -10,17 +10,18 @@ import os
 from datetime import datetime
 from typing import Optional
 
-DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+def _get_database_url() -> Optional[str]:
+    return os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
 
 
 def is_db_available() -> bool:
-    return DATABASE_URL is not None
+    return _get_database_url() is not None
 
 
 def get_conn():
     """psycopg2 커넥션을 반환한다."""
     import psycopg2
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(_get_database_url())
 
 
 def init_db():
@@ -51,7 +52,8 @@ def init_db():
                     attachments JSONB DEFAULT '[]',
                     detail_url TEXT DEFAULT '',
                     crawled_at TIMESTAMPTZ DEFAULT NOW(),
-                    view_count INT DEFAULT 0
+                    view_count INT DEFAULT 0,
+                    collected_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
             # 중복 방지 인덱스 (pbanc_sn이 비어있지 않은 경우)
@@ -168,7 +170,7 @@ def seed_announcements_if_empty():
                     item.get("contentText", ""),
                     json.dumps(item.get("attachments", []), ensure_ascii=False),
                     item.get("detailUrl", ""),
-                    item.get("crawledAt", crawled_at),
+                    item.get("crawledAt", "") or crawled_at,
                     item.get("viewCount", 0),
                 ))
         conn.commit()
@@ -189,6 +191,9 @@ def upsert_announcements(announcements) -> int:
         with conn.cursor() as cur:
             for a in announcements:
                 d = a.to_dict() if hasattr(a, "to_dict") else a
+                crawled_at = d.get("crawledAt", "") or None
+                if crawled_at == "":
+                    crawled_at = datetime.now().isoformat()
                 cur.execute("""
                     INSERT INTO announcements (
                         pbanc_sn, source, title, support_field, target_age,
@@ -217,7 +222,7 @@ def upsert_announcements(announcements) -> int:
                     d.get("contentText", ""),
                     json.dumps(d.get("attachments", []), ensure_ascii=False),
                     d.get("detailUrl", ""),
-                    d.get("crawledAt", datetime.now().isoformat()),
+                    crawled_at,
                     d.get("viewCount", 0),
                 ))
                 inserted += cur.rowcount
