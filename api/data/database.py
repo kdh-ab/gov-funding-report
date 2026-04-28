@@ -21,7 +21,7 @@ def is_db_available() -> bool:
 def get_conn():
     """psycopg2 커넥션을 반환한다."""
     import psycopg2
-    return psycopg2.connect(_get_database_url())
+    return psycopg2.connect(_get_database_url(), connect_timeout=10)
 
 
 def init_db():

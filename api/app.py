@@ -24,9 +24,13 @@ from data.database import init_db, seed_announcements_if_empty
 
 @asynccontextmanager
 async def lifespan(app):
-    # Startup: DB 테이블 생성 + 시드 데이터 삽입
-    init_db()
-    seed_announcements_if_empty()
+    # Startup: DB 테이블 생성 + 시드 데이터 삽입 (실패해도 앱은 기동)
+    try:
+        init_db()
+        seed_announcements_if_empty()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
     yield
 
 
