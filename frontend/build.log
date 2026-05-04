@@ -1,0 +1,25 @@
+
+> frontend@0.1.0 build /Applications/gitbasic/gov-funding-report/frontend
+> next build
+
+▲ Next.js 16.2.4 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1732ms
+  Running TypeScript ...
+Failed to type check.
+
+./src/app/components/steps/Step3Results.tsx:158:9
+Type error: Type '{ activeView: "dashboard" | "announcements"; result: RecommendResult; crawledDate: string; cacheAgeText: string | null; downloading: string | null; refreshPending: boolean; onDownload: (format: "xlsx" | "pdf") => Promise<...>; onRefresh: () => Promise<...>; onEditCondition: () => void; }' is not assignable to type 'IntrinsicAttributes & { activeView: "dashboard" | "announcements"; crawledDate: string; cacheAgeText: string | null; downloading: string | null; refreshPending: boolean; onDownload: (fmt: "xlsx" | "pdf") => void; onRefresh: () => void; onEditCondition: () => void; }'.
+  Property 'result' does not exist on type 'IntrinsicAttributes & { activeView: "dashboard" | "announcements"; crawledDate: string; cacheAgeText: string | null; downloading: string | null; refreshPending: boolean; onDownload: (fmt: "xlsx" | "pdf") => void; onRefresh: () => void; onEditCondition: () => void; }'.
+
+  [90m156 |[0m       <[33mPageHeader[0m
+  [90m157 |[0m         activeView={activeView}
+[31m[1m>[0m [90m158 |[0m         result={result}
+  [90m    |[0m         [31m[1m^[0m
+  [90m159 |[0m         crawledDate={crawledDate}
+  [90m160 |[0m         cacheAgeText={cacheAgeText}
+  [90m161 |[0m         downloading={downloading}
+Next.js build worker exited with code: 1 and signal: null
+ ELIFECYCLE  Command failed with exit code 1.

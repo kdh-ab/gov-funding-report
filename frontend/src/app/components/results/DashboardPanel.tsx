@@ -197,9 +197,11 @@ function UrgentActionItems({
 
 function UrgentRow({
   match,
+  dday,
   onOpen,
 }: {
   match: MatchedAnnouncement;
+  dday: number;
   onOpen: (m: MatchedAnnouncement) => void;
 }) {
   const a = match.announcement;

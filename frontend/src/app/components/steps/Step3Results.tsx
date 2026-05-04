@@ -155,7 +155,6 @@ export function Step3Results({
       {/* 페이지 헤더 — 항상 표시 */}
       <PageHeader
         activeView={activeView}
-        result={result}
         crawledDate={crawledDate}
         cacheAgeText={cacheAgeText}
         downloading={downloading}

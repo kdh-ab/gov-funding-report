@@ -20,7 +20,7 @@ export function Field({
     ? cloneElement(children, {
         id: fieldId,
         "aria-required": required || undefined,
-      })
+      } as any)
     : children;
 
   return (
