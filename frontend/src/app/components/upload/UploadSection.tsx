@@ -84,11 +84,21 @@ export function UploadSection({
   return (
     <div className="upload-outer-card rounded-2xl p-5 select-none flex-1 flex flex-col">
       <div
+        role="button"
+        tabIndex={isPending ? -1 : 0}
+        aria-disabled={isPending || done}
+        aria-busy={isPending}
         onDrop={handleDrop}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => !isPending && !done && fileRef.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !isPending && !done) {
+            e.preventDefault();
+            fileRef.current?.click();
+          }
+        }}
         className={`relative rounded-xl py-10 px-8 text-center transition-all duration-300 cursor-pointer border-2 border-dashed flex-1 flex flex-col items-center justify-center ${
           dragging
             ? "bg-[#FFFDE6] border-[#131A1C] upload-dashed-active"

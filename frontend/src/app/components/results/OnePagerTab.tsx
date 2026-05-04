@@ -1,5 +1,5 @@
 import type { MatchedAnnouncement, CompanyFormData } from "../../actions/recommend";
-import { getDday, getLevelLabel, parsePeriodEnd } from "../../utils/announcement";
+import { getDday } from "../../utils/announcement";
 import { SignalBar } from "../ui/SignalBar";
 
 function parseReceptionDates(period: string) {

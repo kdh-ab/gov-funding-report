@@ -27,9 +27,10 @@ export function Step1Upload({
           <div className="flex-1 h-px bg-[#e8e8e4]" />
         </div>
 
-        <div
+        <button
+          type="button"
           onClick={onNext}
-          className="flex flex-col items-center justify-center rounded-2xl bg-white border border-[#e8e8e4] hover:border-[#131A1C]/30 cursor-pointer transition-all duration-200 hover:shadow-md p-10 group"
+          className="flex flex-col items-center justify-center rounded-2xl bg-white border border-[#e8e8e4] hover:border-[#131A1C]/30 cursor-pointer transition-all duration-200 hover:shadow-md p-10 group text-left"
         >
           <div className="w-14 h-14 rounded-full bg-[#f7f7f5] group-hover:bg-yellow-300/20 flex items-center justify-center mb-4 transition-colors duration-200">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#131A1C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -43,7 +44,7 @@ export function Step1Upload({
           <p className="text-sm text-[#91959B] mt-1 text-center">
             사업자등록증 없이 기업 정보를 직접 입력합니다
           </p>
-        </div>
+        </button>
       </div>
     );
   }

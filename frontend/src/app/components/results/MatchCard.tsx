@@ -29,8 +29,9 @@ export function MatchCardCompact({
   const isKStartup = a.source === "K-Startup";
 
   return (
-    <div
-      className={`relative bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border flex flex-col ${
+    <button
+      type="button"
+      className={`relative w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border flex flex-col text-left ${
         isKStartup
           ? "border-indigo-100 hover:border-indigo-200"
           : "border-teal-100 hover:border-teal-200"
@@ -55,7 +56,7 @@ export function MatchCardCompact({
           {a.region && <p className="truncate">지역: {a.region}</p>}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -71,8 +72,9 @@ export function MatchCardList({
   const isKStartup = a.source === "K-Startup";
 
   return (
-    <div
-      className={`relative bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border ${
+    <button
+      type="button"
+      className={`relative w-full bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border text-left ${
         isKStartup
           ? "border-indigo-100 hover:border-indigo-200"
           : "border-teal-100 hover:border-teal-200"
@@ -116,6 +118,6 @@ export function MatchCardList({
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }

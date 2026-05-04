@@ -18,9 +18,14 @@ export function Step2Form({
   return (
     <div className="space-y-6">
       <Section title="기업 기본 정보">
+        <p className="text-sm text-[#676C73]">
+          OCR로 채워진 항목을 확인하고, 추천 정확도를 높일 정보만 보완해 주세요.
+        </p>
         <Field label="기업명" required>
           <input
             type="text"
+            name="company_name"
+            autoComplete="organization"
             required
             value={formData.company_name}
             onChange={(e) => onUpdateField("company_name", e.target.value)}
@@ -32,6 +37,7 @@ export function Step2Form({
           <Field label="설립연월일">
             <input
               type="date"
+              name="established_date"
               value={formData.established_date}
               onChange={(e) => onUpdateField("established_date", e.target.value)}
               className="input"
@@ -40,6 +46,8 @@ export function Step2Form({
           <Field label="소재지">
             <input
               type="text"
+              name="address"
+              autoComplete="street-address"
               value={formData.address}
               onChange={(e) => onUpdateField("address", e.target.value)}
               placeholder="서울특별시 강남구 테헤란로 123"
@@ -51,6 +59,7 @@ export function Step2Form({
           <Field label="주업종">
             <input
               type="text"
+              name="main_industry"
               value={formData.main_industry}
               onChange={(e) => onUpdateField("main_industry", e.target.value)}
               placeholder="예: 정보통신업"
@@ -60,6 +69,7 @@ export function Step2Form({
           <Field label="주요산업">
             <input
               type="text"
+              name="main_sector"
               value={formData.main_sector}
               onChange={(e) => onUpdateField("main_sector", e.target.value)}
               placeholder="예: AI/빅데이터"
@@ -70,6 +80,7 @@ export function Step2Form({
         <Field label="사업아이템 한줄 정리">
           <textarea
             rows={2}
+            name="business_item_summary"
             value={formData.business_item_summary}
             onChange={(e) => onUpdateField("business_item_summary", e.target.value)}
             placeholder="예: AI 기반 영상 콘텐츠 자동 제작 솔루션"
@@ -83,6 +94,8 @@ export function Step2Form({
           <Field label="대표자명">
             <input
               type="text"
+              name="ceo_name"
+              autoComplete="name"
               value={formData.ceo_name}
               onChange={(e) => onUpdateField("ceo_name", e.target.value)}
               placeholder="홍길동"
@@ -92,6 +105,8 @@ export function Step2Form({
           <Field label="대표자 생년월일">
             <input
               type="date"
+              name="ceo_birth_date"
+              autoComplete="bday"
               value={formData.ceo_birth_date}
               onChange={(e) => onUpdateField("ceo_birth_date", e.target.value)}
               className="input"
@@ -99,7 +114,7 @@ export function Step2Form({
           </Field>
         </div>
         <Field label="대표자 성별">
-          <div className="flex gap-4 mt-1">
+          <div className="flex gap-4 mt-1" role="radiogroup" aria-label="대표자 성별">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"

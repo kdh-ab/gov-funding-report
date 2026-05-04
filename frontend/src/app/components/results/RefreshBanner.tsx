@@ -5,7 +5,11 @@ export function RefreshBanner({
 }) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40">
-      <div className="bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-6 py-4 max-w-2xl mx-auto rounded-t-2xl">
+      <div
+        className="bg-white/95 backdrop-blur border-t border-slate-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-6 py-4 max-w-2xl mx-auto rounded-t-2xl"
+        role="status"
+        aria-live="polite"
+      >
         <div className="flex items-center gap-3 mb-3">
           <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin shrink-0" />
           <p className="text-sm font-semibold text-slate-800">최신 공고를 수집하고 있습니다</p>

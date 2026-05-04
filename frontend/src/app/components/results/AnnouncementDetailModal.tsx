@@ -55,6 +55,9 @@ export function AnnouncementDetailModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="announcement-detail-title"
         className={`relative bg-white w-full max-w-2xl mx-4 my-8 rounded-2xl shadow-2xl overflow-hidden max-h-[calc(100vh-4rem)] flex flex-col ring-1 ${
           isKStartup ? "ring-indigo-200" : "ring-teal-200"
         }`}
@@ -73,10 +76,12 @@ export function AnnouncementDetailModal({
                 <FieldBadge field={a.supportField} size="md" />
                 <DdayBadge dday={dday} size="md" />
               </div>
-              <h2 className="text-base font-bold text-slate-900 leading-snug">{a.title}</h2>
+              <h2 id="announcement-detail-title" className="text-base font-bold text-slate-900 leading-snug">{a.title}</h2>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              aria-label="상세 모달 닫기"
               className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white/60 transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -221,7 +226,7 @@ function DetailTabContent({
       {previewUrl ? (
         <DetailSection title="공고 미리보기">
           <div className="relative rounded-lg border border-slate-200 overflow-hidden bg-white">
-            <iframe src={previewUrl} className="w-full h-[500px] border-0" title="공고 미리���기" />
+            <iframe src={previewUrl} className="w-full h-[500px] border-0" title="공고 미리보기" />
           </div>
           <a
             href={previewUrl}
